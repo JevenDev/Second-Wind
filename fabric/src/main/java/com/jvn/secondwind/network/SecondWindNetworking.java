@@ -117,6 +117,10 @@ public final class SecondWindNetworking {
         ClientPlayNetworking.send(ServerboundGiveUpPayload.INSTANCE);
     }
 
+    public static void sendReviveReleaseRequest() {
+        sendReviveHoldRequest(ServerboundReviveHoldPayload.RELEASE_TARGET_ID);
+    }
+
     public static void sendReviveHoldRequest(int targetEntityId) {
         ClientPlayNetworking.send(new ServerboundReviveHoldPayload(targetEntityId));
     }
@@ -133,7 +137,10 @@ public final class SecondWindNetworking {
     private static void handleReviveHold(ServerboundReviveHoldPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer reviver = context.player();
-            if (reviver.serverLevel().getEntity(payload.targetEntityId()) instanceof LivingEntity target) {
+            if (payload.targetEntityId() == ServerboundReviveHoldPayload.RELEASE_TARGET_ID) {
+                SecondWindService.releaseReviveChannelsFor(reviver);
+                SecondWindEntityService.interruptReviveChannelsFor(reviver);
+            } else if (reviver.serverLevel().getEntity(payload.targetEntityId()) instanceof LivingEntity target) {
                 SecondWindEntityService.refreshReviveChannel(reviver, target);
             }
         });

@@ -7,6 +7,7 @@ import com.jvn.secondwind.api.ExternalDownedEntityAdapter;
 import com.jvn.secondwind.api.ExternalReviveControl;
 import com.jvn.secondwind.api.ResolvedEntityPolicy;
 import com.jvn.secondwind.api.SecondWindApi;
+import com.jvn.secondwind.common.ReviveHoldTiming;
 import com.jvn.secondwind.config.CooldownMode;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.network.SecondWindNetworking;
@@ -31,7 +32,6 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 
 public final class SecondWindEntityService {
-    private static final int REVIVE_HOLD_GRACE_TICKS = 2;
     private static final Map<UUID, LivingEntity> ACTIVE = new ConcurrentHashMap<>();
 
     private SecondWindEntityService() {
@@ -152,7 +152,8 @@ public final class SecondWindEntityService {
 
     public static boolean canPlayerRevive(ServerPlayer reviver, LivingEntity target) {
         if (target instanceof ServerPlayer player) return SecondWindService.canPlayerRevive(reviver, player);
-        if (reviver == target || reviver.isSpectator() || SecondWindService.isDowned(reviver)) return false;
+        if (reviver == target || !reviver.isAlive() || reviver.isRemoved() || reviver.level() != target.level()
+                || reviver.isSpectator() || SecondWindService.isDowned(reviver)) return false;
         SecondWindEntityState state = getState(target);
         ResolvedEntityPolicy policy = state.policy();
         if (!reviver.hasLineOfSight(target)) return false;
@@ -172,7 +173,9 @@ public final class SecondWindEntityService {
         long now = target.level().getGameTime();
         if (policy.reviveChannelTicks() <= 0) return completeRevive(reviver, target, state, policy);
         if (state.reviveChannelReviver().filter(reviver.getUUID()::equals).isEmpty()) {
-            if (state.reviveChannelReviver().isPresent() && state.reviveChannelLastHoldGameTime() >= now - REVIVE_HOLD_GRACE_TICKS) return false;
+            ServerPlayer currentReviver = state.reviveChannelReviver().map(reviver.server.getPlayerList()::getPlayer).orElse(null);
+            if (currentReviver != null
+                    && !ReviveHoldTiming.isExpired(now, state.reviveChannelLastHoldGameTime(), currentReviver.connection.latency())) return false;
             state.beginReviveChannel(reviver.getUUID(), now);
             SecondWindNetworking.syncTrackedEntity(target);
         } else {
@@ -236,7 +239,7 @@ public final class SecondWindEntityService {
         ServerPlayer reviver = target.getServer() == null ? null : target.getServer().getPlayerList().getPlayer(state.reviveChannelReviver().get());
         long now = target.level().getGameTime();
         if (reviver == null || !canPlayerRevive(reviver, target)
-                || state.reviveChannelLastHoldGameTime() < now - REVIVE_HOLD_GRACE_TICKS) {
+                || ReviveHoldTiming.isExpired(now, state.reviveChannelLastHoldGameTime(), reviver.connection.latency())) {
             state.clearReviveChannel();
             SecondWindNetworking.syncTrackedEntity(target);
             return false;

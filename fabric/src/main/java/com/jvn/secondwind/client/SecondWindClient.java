@@ -115,6 +115,7 @@ public final class SecondWindClient implements ClientModInitializer {
 
         reviveRequiredTicks = ClientTrackedDownedPlayers.reviveChannelTicks(targetEntity.getId());
         if (reviveRequiredTicks <= 0) {
+            SecondWindNetworking.sendReviveHoldRequest(targetEntity.getId());
             clearReviveHoldOverlay();
             return;
         }
@@ -142,6 +143,9 @@ public final class SecondWindClient implements ClientModInitializer {
     }
 
     private static void releaseReviveHoldOverlay(boolean fade) {
+        if (activeReviveTargetId != -1 && Minecraft.getInstance().getConnection() != null) {
+            SecondWindNetworking.sendReviveReleaseRequest();
+        }
         if (activeReviveTargetId != -1 && fade && reviveDisplayHeldTicks > 0) {
             reviveFadeTicks = REVIVE_OVERLAY_FADE_TICKS;
         }
@@ -162,8 +166,7 @@ public final class SecondWindClient implements ClientModInitializer {
     }
 
     private static void clearReviveHoldOverlay() {
-        activeReviveTargetId = -1;
-        reviveHeldTicks = 0;
+        releaseReviveHoldOverlay(false);
         reviveRequiredTicks = 0;
         reviveDisplayHeldTicks = 0;
         reviveDisplayTargetName = "";

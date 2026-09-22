@@ -135,6 +135,10 @@ public final class SecondWindNetworking {
         PacketDistributor.sendToServer(ServerboundGiveUpPayload.INSTANCE);
     }
 
+    public static void sendReviveReleaseRequest() {
+        sendReviveHoldRequest(ServerboundReviveHoldPayload.RELEASE_TARGET_ID);
+    }
+
     public static void sendReviveHoldRequest(int targetEntityId) {
         PacketDistributor.sendToServer(new ServerboundReviveHoldPayload(targetEntityId));
     }
@@ -149,7 +153,10 @@ public final class SecondWindNetworking {
 
     private static void handleReviveHold(ServerboundReviveHoldPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext context) {
         ToucanNetwork.withServerPlayer(context, reviver -> {
-            if (reviver.serverLevel().getEntity(payload.targetEntityId()) instanceof LivingEntity target) {
+            if (payload.targetEntityId() == ServerboundReviveHoldPayload.RELEASE_TARGET_ID) {
+                SecondWindService.releaseReviveChannelsFor(reviver);
+                SecondWindEntityService.interruptReviveChannelsFor(reviver);
+            } else if (reviver.serverLevel().getEntity(payload.targetEntityId()) instanceof LivingEntity target) {
                 SecondWindEntityService.refreshReviveChannel(reviver, target);
             }
         });

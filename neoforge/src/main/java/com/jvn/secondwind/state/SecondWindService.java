@@ -3,6 +3,7 @@ package com.jvn.secondwind.state;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.api.AnnouncementMessage;
 import com.jvn.secondwind.api.ChatMessageManager;
+import com.jvn.secondwind.common.ReviveHoldTiming;
 import com.jvn.secondwind.config.CooldownMode;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.network.SecondWindNetworking;
@@ -31,7 +32,6 @@ public final class SecondWindService {
     private static final float DOWNED_SAFE_HEALTH = 1.0F;
     private static final int DOWNED_SLOWNESS_REFRESH_TICKS = 10;
     private static final int LAST_SECOND_REVIVE_TICKS = Math.max(1, TICKS_PER_SECOND / 10);
-    private static final int REVIVE_HOLD_GRACE_TICKS = 2;
     private static final double DOWNED_DAMAGE_KNOCKBACK_STRENGTH = 0.4D;
     private static final Vector3f REVIVE_PARTICLE_PURPLE = new Vector3f(0.73F, 0.42F, 0.98F);
     private static final Vector3f REVIVE_PARTICLE_WHITE = new Vector3f(0.98F, 0.96F, 1.0F);
@@ -181,6 +181,9 @@ public final class SecondWindService {
     public static boolean canPlayerRevive(ServerPlayer reviver, ServerPlayer downedPlayer) {
         return SecondWindConfig.MULTIPLAYER_REVIVE.get()
                 && reviver != downedPlayer
+                && reviver.isAlive()
+                && !reviver.isRemoved()
+                && reviver.serverLevel() == downedPlayer.serverLevel()
                 && !reviver.isSpectator()
                 && !isDowned(reviver)
                 && isDowned(downedPlayer)
@@ -203,8 +206,10 @@ public final class SecondWindService {
 
         long gameTime = downedPlayer.serverLevel().getGameTime();
         if (state.getReviveChannelReviver().filter(reviver.getUUID()::equals).isEmpty()) {
-            if (state.getReviveChannelReviver().isPresent()
-                    && state.getReviveChannelLastHoldGameTime() >= gameTime - REVIVE_HOLD_GRACE_TICKS) {
+            ServerPlayer currentReviver = state.getReviveChannelReviver()
+                    .map(downedPlayer.server.getPlayerList()::getPlayer).orElse(null);
+            if (currentReviver != null
+                    && !ReviveHoldTiming.isExpired(gameTime, state.getReviveChannelLastHoldGameTime(), currentReviver.connection.latency())) {
                 return false;
             }
 
@@ -214,6 +219,16 @@ public final class SecondWindService {
 
         state.setReviveChannelLastHoldGameTime(gameTime);
         return true;
+    }
+
+    public static void releaseReviveChannelsFor(ServerPlayer player) {
+        for (ServerPlayer other : player.server.getPlayerList().getPlayers()) {
+            SecondWindPlayerState state = getState(other);
+            if (state.getReviveChannelReviver().filter(player.getUUID()::equals).isPresent()) {
+                state.clearReviveChannel();
+                SecondWindNetworking.syncToPlayer(other);
+            }
+        }
     }
 
     public static void interruptReviveChannelsFor(ServerPlayer player) {
@@ -516,11 +531,8 @@ public final class SecondWindService {
         ServerPlayer reviver = downedPlayer.server.getPlayerList().getPlayer(state.getReviveChannelReviver().get());
         long gameTime = downedPlayer.serverLevel().getGameTime();
         if (reviver == null
-                || reviver.isRemoved()
-                || reviver.isSpectator()
-                || isDowned(reviver)
-                || !isWithinReviveDistance(reviver, downedPlayer)
-                || state.getReviveChannelLastHoldGameTime() < gameTime - REVIVE_HOLD_GRACE_TICKS) {
+                || !canPlayerRevive(reviver, downedPlayer)
+                || ReviveHoldTiming.isExpired(gameTime, state.getReviveChannelLastHoldGameTime(), reviver.connection.latency())) {
             state.clearReviveChannel();
             SecondWindNetworking.syncToPlayer(downedPlayer);
             return;
