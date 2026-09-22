@@ -3,6 +3,7 @@ package com.jvn.secondwind.state;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.api.AnnouncementMessage;
 import com.jvn.secondwind.api.ChatMessageManager;
+import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.common.ReviveHoldTiming;
 import com.jvn.secondwind.config.CooldownMode;
 import com.jvn.secondwind.config.SecondWindConfig;
@@ -13,6 +14,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.DustColorTransitionOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -59,6 +61,8 @@ public final class SecondWindService {
 
         enterDowned(player, damageSource);
         player.setHealth(DOWNED_SAFE_HEALTH);
+        player.deathTime = 0;
+        syncHealth(player);
         player.fallDistance = 0.0F;
         player.setDeltaMovement(player.getDeltaMovement().multiply(0.15D, 0.0D, 0.15D));
 
@@ -131,24 +135,30 @@ public final class SecondWindService {
         state.incrementDownPenaltyCount();
         state.setForcedDeathFlow(true);
         applyCooldown(player);
+        SecondWindNetworking.syncToPlayer(player);
     }
 
     public static void failAndKill(ServerPlayer player, FailureReason reason) {
         SecondWindPlayerState state = getState(player);
         DamageSource damageSource = SecondWindDamageSources.failureSource(player, state, reason);
         failDowned(player, reason);
-        player.setHealth(1.0F);
+        // forced death must not depend on cancelable damage or damage mitigation
+        float health = player.getHealth();
+        player.getCombatTracker().recordDamage(damageSource, Float.isFinite(health) ? Math.max(1.0F, health) : 1.0F);
+        player.setHealth(0.0F);
         player.invulnerableTime = 0;
-        if (!player.hurt(damageSource, Float.MAX_VALUE)) {
-            player.kill();
-        }
-        SecondWindNetworking.syncToPlayer(player);
+        player.die(damageSource);
     }
 
     public static void tickDowned(ServerPlayer player) {
         SecondWindPlayerState state = getState(player);
         if (!state.isDowned()) {
             resetCooldownForNewDayIfNeeded(player);
+            return;
+        }
+
+        if (!player.isAlive()) {
+            failAndKill(player, FailureReason.INVALID_STATE);
             return;
         }
 
@@ -593,12 +603,17 @@ public final class SecondWindService {
         player.setSprinting(false);
     }
 
+    private static void syncHealth(ServerPlayer player) {
+        player.connection.send(new ClientboundSetHealthPacket(player.getHealth(),
+                player.getFoodData().getFoodLevel(), player.getFoodData().getSaturationLevel()));
+    }
+
     private static void applyReviveHealthAndEffects(ServerPlayer player) {
-        float maxHealth = player.getMaxHealth();
-        float targetHealth = Math.min(maxHealth, SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue());
         int regenTicks = SecondWindConfig.REVIVE_REGENERATION_SECONDS.get() * TICKS_PER_SECOND;
-        float initialHealth = regenTicks > 0 ? Math.max(4.0F, targetHealth * 0.5F) : targetHealth;
-        player.setHealth(Math.min(maxHealth, Math.max(player.getHealth(), initialHealth)));
+        player.setHealth(ReviveHealth.restoredHealth(player.getHealth(), player.getMaxHealth(),
+                SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue(), regenTicks > 0));
+        player.deathTime = 0;
+        syncHealth(player);
         if (regenTicks > 0) {
             player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, regenTicks, 1));
         }

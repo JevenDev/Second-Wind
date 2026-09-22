@@ -18,6 +18,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -82,9 +83,13 @@ public final class SecondWindServerEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onForcedLivingDeath(LivingDeathEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player
-                && SecondWindService.getState(player).isForcedDeathFlow()) {
-            event.setCanceled(false);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            SecondWindPlayerState state = SecondWindService.getState(player);
+            if (state.isForcedDeathFlow()) {
+                event.setCanceled(false);
+            } else if (state.isDowned()) {
+                event.setCanceled(true);
+            }
         }
     }
 
@@ -194,6 +199,11 @@ public final class SecondWindServerEvents {
                     == SecondWindEntityService.DamageResult.CANCEL) {
                 event.setCanceled(true);
             }
+            return;
+        }
+
+        if (SecondWindService.isDowned(player) && event.getSource().is(DamageTypes.GENERIC_KILL)) {
+            SecondWindService.failDowned(player, FailureReason.INVALID_STATE);
             return;
         }
 

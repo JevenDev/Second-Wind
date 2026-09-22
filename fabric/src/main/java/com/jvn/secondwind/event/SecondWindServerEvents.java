@@ -28,6 +28,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.item.ItemStack;
 
 public final class SecondWindServerEvents {
@@ -147,6 +148,11 @@ public final class SecondWindServerEvents {
     private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
         if (!(entity instanceof ServerPlayer player)) {
             return SecondWindEntityService.handleIncomingDamage(entity, source, amount) != SecondWindEntityService.DamageResult.CANCEL;
+        }
+
+        if (SecondWindService.isDowned(player) && source.is(DamageTypes.GENERIC_KILL)) {
+            SecondWindService.failDowned(player, FailureReason.INVALID_STATE);
+            return true;
         }
 
         if (SecondWindService.isDowned(player)) {
