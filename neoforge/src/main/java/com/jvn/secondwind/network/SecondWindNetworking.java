@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
 public final class SecondWindNetworking {
-    private static final String NETWORK_VERSION = "6";
+    private static final String NETWORK_VERSION = "7";
 
     private SecondWindNetworking() {
     }
@@ -27,6 +27,11 @@ public final class SecondWindNetworking {
         ToucanNetwork network = ToucanNetwork.create(SecondWindMod.MOD_ID, NETWORK_VERSION, event);
         network.playToServer(ServerboundGiveUpPayload.TYPE, ServerboundGiveUpPayload.STREAM_CODEC, SecondWindNetworking::handleGiveUp);
         network.playToServer(ServerboundReviveHoldPayload.TYPE, ServerboundReviveHoldPayload.STREAM_CODEC, SecondWindNetworking::handleReviveHold);
+        network.safePlayToClient(
+                ClientboundReviveProgressPayload.TYPE,
+                ClientboundReviveProgressPayload.STREAM_CODEC,
+                "com.jvn.secondwind.client.SecondWindClient",
+                "applyReviveProgress");
         network.safePlayToClient(
                 ClientboundSecondWindStatePayload.TYPE,
                 ClientboundSecondWindStatePayload.STREAM_CODEC,
@@ -75,7 +80,15 @@ public final class SecondWindNetworking {
     }
 
     private static void syncTrackedDownedState(ServerPlayer player, SecondWindPlayerState state) {
-        ClientboundTrackedDownedPlayerPayload payload = new ClientboundTrackedDownedPlayerPayload(
+        ClientboundTrackedDownedPlayerPayload payload = trackedPlayerPayload(player, state);
+        safeSendToPlayer(player, payload);
+        for (ServerPlayer other : player.serverLevel().getChunkSource().chunkMap.getPlayersWatching(player)) {
+            safeSendToPlayer(other, payload);
+        }
+    }
+
+    private static ClientboundTrackedDownedPlayerPayload trackedPlayerPayload(ServerPlayer player, SecondWindPlayerState state) {
+        return new ClientboundTrackedDownedPlayerPayload(
                 player.getId(),
                 state.isDowned(),
                 true,
@@ -86,12 +99,6 @@ public final class SecondWindNetworking {
                 (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D),
                 SecondWindConfig.REVIVE_DISTANCE.get(),
                 ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "crawl"));
-
-        for (ServerPlayer other : player.server.getPlayerList().getPlayers()) {
-            if (other.serverLevel() == player.serverLevel()) {
-                safeSendToPlayer(other, payload);
-            }
-        }
     }
 
     public static void syncTrackedEntity(LivingEntity entity) {
@@ -99,30 +106,29 @@ public final class SecondWindNetworking {
             syncToPlayer(player);
             return;
         }
-        SecondWindEntityState state = SecondWindEntityService.getState(entity);
-        ResolvedEntityPolicy policy = state.policy();
-        ClientboundTrackedDownedPlayerPayload payload = new ClientboundTrackedDownedPlayerPayload(
-                entity.getId(), state.isDowned(), policy != null && policy.showTimer(),
-                state.ticksRemaining(), state.maxTicks(), state.reviveChannelReviver().isPresent(),
-                policy != null && policy.reviveEnabled(),
-                policy == null ? 0 : policy.reviveChannelTicks(),
-                policy == null ? 0.0D : policy.reviveDistance(),
-                policy == null ? ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "sideways") : policy.pose());
-        for (ServerPlayer player : entity.level().getServer().getPlayerList().getPlayers()) {
-            if (player.serverLevel() == entity.level()) {
+        ClientboundTrackedDownedPlayerPayload payload = trackedPayload(entity);
+        if (entity.level().getChunkSource() instanceof net.minecraft.server.level.ServerChunkCache chunkCache) {
+            for (ServerPlayer player : chunkCache.chunkMap.getPlayersWatching(entity)) {
                 safeSendToPlayer(player, payload);
             }
         }
     }
 
     public static void sendTrackedEntity(ServerPlayer player, LivingEntity entity) {
+        safeSendToPlayer(player, trackedPayload(entity));
+    }
+
+    private static ClientboundTrackedDownedPlayerPayload trackedPayload(LivingEntity entity) {
+        if (entity instanceof ServerPlayer player) {
+            return trackedPlayerPayload(player, SecondWindService.getState(player));
+        }
         SecondWindEntityState state = SecondWindEntityService.getState(entity);
         ResolvedEntityPolicy policy = state.policy();
-        safeSendToPlayer(player, new ClientboundTrackedDownedPlayerPayload(
+        return new ClientboundTrackedDownedPlayerPayload(
                 entity.getId(), state.isDowned(), policy != null && policy.showTimer(), state.ticksRemaining(), state.maxTicks(),
                 state.reviveChannelReviver().isPresent(), policy != null && policy.reviveEnabled(), policy == null ? 0 : policy.reviveChannelTicks(),
                 policy == null ? 0.0D : policy.reviveDistance(),
-                policy == null ? ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "sideways") : policy.pose()));
+                policy == null ? ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "sideways") : policy.pose());
     }
 
     private static void safeSendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
@@ -151,13 +157,29 @@ public final class SecondWindNetworking {
         });
     }
 
+    private static void sendReviveProgress(ServerPlayer reviver, LivingEntity target, boolean accepted) {
+        int completed = 0;
+        int required = 0;
+        if (accepted && target instanceof ServerPlayer player) {
+            SecondWindPlayerState state = SecondWindService.getState(player);
+            completed = state.getReviveChannelTicks();
+            required = state.getReviveChannelRequiredTicks();
+        } else if (accepted) {
+            SecondWindEntityState state = SecondWindEntityService.getState(target);
+            completed = state.reviveChannelTicks();
+            required = state.policy() == null ? 0 : state.policy().reviveChannelTicks();
+        }
+        safeSendToPlayer(reviver, new ClientboundReviveProgressPayload(target.getId(), completed, required));
+    }
+
     private static void handleReviveHold(ServerboundReviveHoldPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext context) {
         ToucanNetwork.withServerPlayer(context, reviver -> {
             if (payload.targetEntityId() == ServerboundReviveHoldPayload.RELEASE_TARGET_ID) {
                 SecondWindService.releaseReviveChannelsFor(reviver);
                 SecondWindEntityService.interruptReviveChannelsFor(reviver);
             } else if (reviver.serverLevel().getEntity(payload.targetEntityId()) instanceof LivingEntity target) {
-                SecondWindEntityService.refreshReviveChannel(reviver, target);
+                boolean accepted = SecondWindEntityService.refreshReviveChannel(reviver, target);
+                sendReviveProgress(reviver, target, accepted);
             }
         });
     }

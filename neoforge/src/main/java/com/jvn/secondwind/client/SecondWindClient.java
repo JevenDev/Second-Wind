@@ -5,6 +5,7 @@ import com.jvn.secondwind.client.hud.SecondWindHud;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.item.SecondWindItems;
 import com.jvn.secondwind.network.SecondWindNetworking;
+import com.jvn.secondwind.network.ClientboundReviveProgressPayload;
 import com.jvn.secondwind.client.shader.SecondWindPostEffects;
 import com.jvn.toucanlib.input.ToucanKeybinds;
 import net.minecraft.client.KeyMapping;
@@ -31,7 +32,6 @@ public final class SecondWindClient {
     private static boolean giveUpSent;
     private static boolean localDownedPoseApplied;
     private static int activeReviveTargetId = -1;
-    private static int reviveHeldTicks;
     private static int reviveRequiredTicks;
     private static int reviveDisplayHeldTicks;
     private static String reviveDisplayTargetName = "";
@@ -111,9 +111,8 @@ public final class SecondWindClient {
         }
 
         if (activeReviveTargetId != targetEntity.getId()) {
-            releaseReviveHoldOverlay(false);
+            clearReviveHoldOverlay();
             activeReviveTargetId = targetEntity.getId();
-            reviveHeldTicks = 0;
         }
 
         reviveRequiredTicks = ClientTrackedDownedPlayers.reviveChannelTicks(targetEntity.getId());
@@ -123,11 +122,17 @@ public final class SecondWindClient {
             return;
         }
 
-        reviveHeldTicks = Mth.clamp(reviveHeldTicks + 1, 0, reviveRequiredTicks);
-        reviveDisplayHeldTicks = reviveHeldTicks;
         reviveDisplayTargetName = targetEntity.getName().getString();
         reviveFadeTicks = 0;
         SecondWindNetworking.sendReviveHoldRequest(targetEntity.getId());
+    }
+
+    public static void applyReviveProgress(ClientboundReviveProgressPayload payload) {
+        if (payload.targetEntityId() != activeReviveTargetId) {
+            return;
+        }
+        reviveRequiredTicks = Math.max(0, payload.requiredTicks());
+        reviveDisplayHeldTicks = Mth.clamp(payload.completedTicks(), 0, reviveRequiredTicks);
     }
 
     private static LivingEntity currentReviveTarget(Minecraft minecraft) {
@@ -154,7 +159,6 @@ public final class SecondWindClient {
         }
 
         activeReviveTargetId = -1;
-        reviveHeldTicks = 0;
     }
 
     private static void tickReviveHoldFade() {

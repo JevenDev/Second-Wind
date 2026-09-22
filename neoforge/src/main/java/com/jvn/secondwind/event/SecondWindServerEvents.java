@@ -276,8 +276,7 @@ public final class SecondWindServerEvents {
 
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
-        if (event.getEntity() instanceof ServerPlayer player && event.getTarget() instanceof LivingEntity living
-                && !(living instanceof ServerPlayer)) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getTarget() instanceof LivingEntity living) {
             SecondWindEntityService.notifyExternalStateChanged(living);
             SecondWindNetworking.sendTrackedEntity(player, living);
         }

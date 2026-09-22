@@ -3,6 +3,8 @@ package com.jvn.secondwind.client;
 import com.jvn.secondwind.network.ClientboundTrackedDownedPlayerPayload;
 import com.jvn.secondwind.api.SecondWindClientApi;
 import com.jvn.secondwind.api.TrackedDownedEntityState;
+import java.util.Collections;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -12,6 +14,7 @@ import net.minecraft.world.entity.Entity;
 
 public final class ClientTrackedDownedPlayers {
     private static final Map<Integer, TrackedDownedPlayerState> STATES = new HashMap<>();
+    private static final Set<Integer> TRACKED_IDS = Collections.unmodifiableSet(STATES.keySet());
 
     private ClientTrackedDownedPlayers() {
     }
@@ -66,6 +69,10 @@ public final class ClientTrackedDownedPlayers {
         long elapsedNanos = Math.max(0L, System.nanoTime() - state.syncNanos());
         float elapsedTicks = elapsedNanos / 50_000_000.0F;
         return Math.max(0.0F, state.ticksRemaining() - elapsedTicks);
+    }
+
+    public static Set<Integer> trackedEntityIds() {
+        return TRACKED_IDS;
     }
 
     public static boolean isDowned(int entityId) {

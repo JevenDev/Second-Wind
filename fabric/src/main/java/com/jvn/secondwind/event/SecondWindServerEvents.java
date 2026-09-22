@@ -70,7 +70,7 @@ public final class SecondWindServerEvents {
             if (entity instanceof LivingEntity living && !(living instanceof ServerPlayer)) SecondWindEntityService.onUnloaded(living);
         });
         EntityTrackingEvents.START_TRACKING.register((entity, player) -> {
-            if (entity instanceof LivingEntity living && !(living instanceof ServerPlayer)) {
+            if (entity instanceof LivingEntity living) {
                 SecondWindEntityService.notifyExternalStateChanged(living);
                 SecondWindNetworking.sendTrackedEntity(player, living);
             }
