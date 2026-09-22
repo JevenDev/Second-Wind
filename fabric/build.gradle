@@ -23,6 +23,8 @@ configurations {
     developmentFabric.extendsFrom common
 }
 
+sourceSets.main.java.srcDir project(':common').file('src/platform/java')
+
 sourceSets.main.resources {
     srcDir project(':common').file('src/main/resources')
 }
