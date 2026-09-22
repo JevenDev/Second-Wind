@@ -23,9 +23,10 @@ public final class SecondWindDownedPostProcessor {
     private float tintStrength;
     private float bloomStrength;
     private float pulseStrength;
-    private float time;
+    private final DownedEffectClock clock = new DownedEffectClock();
     private PostChain postChain;
     private boolean active;
+    private boolean loadFailed;
     private int cachedWidth = -1;
     private int cachedHeight = -1;
 
@@ -34,7 +35,8 @@ public final class SecondWindDownedPostProcessor {
 
     public void reload() {
         close();
-        time = 0.0F;
+        clock.reset();
+        loadFailed = false;
     }
 
     public void updateState(float blend, float urgency) {
@@ -43,11 +45,11 @@ public final class SecondWindDownedPostProcessor {
         this.vignetteStrength = blend * (SecondWindConfig.ENABLE_DOWNED_VIGNETTE.get() ? 0.78F + urgency * 0.18F : 0.0F);
         this.desaturationStrength = blend * (SecondWindConfig.ENABLE_DESATURATION.get() ? 0.72F + urgency * 0.16F : 0.0F);
         this.tintStrength = blend * (SecondWindConfig.ENABLE_DESATURATION.get() ? 0.46F + urgency * 0.32F : 0.0F);
-        this.bloomStrength = 0.0F;
+        this.bloomStrength = blend * (SecondWindConfig.ENABLE_DOWNED_BLOOM.get() ? 0.25F + urgency * 0.15F : 0.0F);
         this.pulseStrength = blend * (0.015F + urgency * 0.035F);
         this.active = blend > 0.02F && (vignetteStrength > 0.0F || desaturationStrength > 0.0F || bloomStrength > 0.0F);
         if (!this.active) {
-            time = 0.0F;
+            clock.reset();
         }
     }
 
@@ -69,7 +71,7 @@ public final class SecondWindDownedPostProcessor {
         resizeIfNeeded(minecraft);
 
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
-        time += partialTick / 20.0F;
+        float time = clock.seconds(minecraft.level.getGameTime(), partialTick);
 
         postChain.setUniform("time", time);
         postChain.setUniform("aspectRatio", cachedHeight <= 0 ? 1.0F : (float) cachedWidth / (float) cachedHeight);
@@ -85,7 +87,7 @@ public final class SecondWindDownedPostProcessor {
     }
 
     private void ensurePostChain(Minecraft minecraft) {
-        if (postChain != null) {
+        if (postChain != null || loadFailed) {
             return;
         }
 
@@ -101,6 +103,7 @@ public final class SecondWindDownedPostProcessor {
         } catch (IOException | JsonParseException exception) {
             SecondWindMod.LOGGER.error("Failed to load Second Wind post-processing shader", exception);
             close();
+            loadFailed = true;
         }
     }
 

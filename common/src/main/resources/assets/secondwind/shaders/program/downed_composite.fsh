@@ -42,6 +42,16 @@ void main() {
     float vignetteDarkness = vignette * VignetteStrength * (0.9 + pulse * 0.025);
     vec3 vignetted = mix(graded, graded * (1.0 - vignetteDarkness), DownedBlend);
 
-    vec3 finalColor = mix(original.rgb, vignetted, DownedBlend);
+    vec3 bloom = vec3(0.0);
+    if (BloomStrength > 0.0) {
+        vec2 offset = vec2(3.0) / InSize;
+        vec3 blurred = (texture(DiffuseSampler, texCoord + offset).rgb
+                + texture(DiffuseSampler, texCoord - offset).rgb
+                + texture(DiffuseSampler, texCoord + vec2(offset.x, -offset.y)).rgb
+                + texture(DiffuseSampler, texCoord + vec2(-offset.x, offset.y)).rgb) * 0.25;
+        bloom = max(blurred - vec3(0.55), vec3(0.0)) * BloomStrength * glowPulse;
+    }
+
+    vec3 finalColor = mix(original.rgb, vignetted + bloom, DownedBlend);
     fragColor = vec4(clamp(finalColor, 0.0, 1.0), original.a);
 }

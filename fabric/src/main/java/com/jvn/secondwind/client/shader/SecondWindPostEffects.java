@@ -1,6 +1,12 @@
 package com.jvn.secondwind.client.shader;
 
 import com.jvn.secondwind.client.ClientSecondWindState;
+import com.jvn.secondwind.common.SecondWindCommon;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
@@ -12,6 +18,17 @@ public final class SecondWindPostEffects {
     }
 
     public static void register() {
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+            @Override
+            public ResourceLocation getFabricId() {
+                return SecondWindCommon.id("downed_post");
+            }
+
+            @Override
+            public void onResourceManagerReload(ResourceManager resourceManager) {
+                SecondWindDownedPostProcessor.INSTANCE.reload();
+            }
+        });
         WorldRenderEvents.END.register(context -> SecondWindDownedPostProcessor.INSTANCE.render(context.tickCounter()));
     }
 
