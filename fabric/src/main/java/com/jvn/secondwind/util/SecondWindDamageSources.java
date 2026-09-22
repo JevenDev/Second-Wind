@@ -15,8 +15,8 @@ public final class SecondWindDamageSources {
     }
 
     public static boolean canTriggerSecondWind(DamageSource source) {
-        if (source.is(DamageTypes.FELL_OUT_OF_WORLD) && !SecondWindConfig.ALLOW_VOID_SECOND_WIND.get()) {
-            return false;
+        if (source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+            return SecondWindConfig.ALLOW_VOID_SECOND_WIND.get();
         }
         if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.GENERIC)) {
             return false;
@@ -25,9 +25,15 @@ public final class SecondWindDamageSources {
     }
 
     public static DamageSource failureSource(ServerPlayer player, SecondWindPlayerState state, FailureReason reason) {
+        return failureSource(player, state, reason, null);
+    }
+
+    public static DamageSource failureSource(ServerPlayer player, SecondWindPlayerState state, FailureReason reason, DamageSource finishingSource) {
         DamageSource originalSource = state.getOriginalDownedDamageSource();
         String originalMessage = state.getOriginalDownedDeathMessage();
-        return new DamageSource(player.damageSources().genericKill().typeHolder()) {
+        return new DamageSource(player.damageSources().genericKill().typeHolder(),
+                finishingSource == null ? null : finishingSource.getDirectEntity(),
+                finishingSource == null ? null : finishingSource.getEntity()) {
             @Override
             public Component getLocalizedDeathMessage(LivingEntity livingEntity) {
                 if (reason != FailureReason.GIVE_UP) {

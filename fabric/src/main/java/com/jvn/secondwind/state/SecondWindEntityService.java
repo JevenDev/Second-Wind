@@ -103,7 +103,12 @@ public final class SecondWindEntityService {
         if (policy.lifecycle() == EntityBehaviorDefinition.Lifecycle.Type.EXTERNAL) {
             ExternalDownedEntityAdapter adapter = SecondWindApi.externalAdapter(policy.adapter()).orElse(null);
             if (adapter == null || !adapter.isDowned(entity)) { clearExternalState(entity, state); return; }
-        } else enforceManagedDowned(entity, state);
+        } else if (!entity.isAlive()) {
+            clearDeadManagedState(entity, state);
+            return;
+        } else {
+            enforceManagedDowned(entity, state);
+        }
         if (tickReviveChannel(entity, state, policy)) return;
         if (policy.lifecycle() == EntityBehaviorDefinition.Lifecycle.Type.MANAGED) {
             state.setTicksRemaining(state.ticksRemaining() - 1);
@@ -117,6 +122,7 @@ public final class SecondWindEntityService {
         if (reviver == target || !reviver.isAlive() || reviver.isRemoved() || reviver.level() != target.level()
                 || reviver.isSpectator() || SecondWindService.isDowned(reviver)) return false;
         SecondWindEntityState state = getState(target); ResolvedEntityPolicy policy = state.policy();
+        if (policy != null && policy.lifecycle() == EntityBehaviorDefinition.Lifecycle.Type.MANAGED && !target.isAlive()) return false;
         if (!reviver.hasLineOfSight(target)) return false;
         if (!state.isDowned() || policy == null || !policy.reviveEnabled() || reviver.distanceToSqr(target) > policy.reviveDistance() * policy.reviveDistance()) return false;
         return policy.lifecycle() != EntityBehaviorDefinition.Lifecycle.Type.EXTERNAL
@@ -241,7 +247,18 @@ public final class SecondWindEntityService {
         state.setForcedDeathFlow(false); SecondWindNetworking.syncTrackedEntity(entity);
     }
 
+    private static void clearDeadManagedState(LivingEntity entity, SecondWindEntityState state) {
+        restoreManagedState(entity, state);
+        state.clearDownedRuntime();
+        ACTIVE.remove(entity.getUUID());
+        SecondWindNetworking.syncTrackedEntity(entity);
+    }
+
     private static void enforceManagedDowned(LivingEntity entity, SecondWindEntityState state) {
+        if (!entity.isAlive()) {
+            clearDeadManagedState(entity, state);
+            return;
+        }
         ResolvedEntityPolicy policy = state.policy();
         if (policy != null && policy.blockHealing()) entity.setHealth(1.0F); else entity.setHealth(Math.max(1.0F, entity.getHealth()));
         entity.stopUsingItem(); entity.fallDistance = 0.0F;

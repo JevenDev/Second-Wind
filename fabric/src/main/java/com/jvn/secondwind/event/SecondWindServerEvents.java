@@ -155,6 +155,11 @@ public final class SecondWindServerEvents {
             return true;
         }
 
+        if (SecondWindConfig.REVIVE_INTERRUPT_ON_DAMAGE.get()) {
+            SecondWindService.interruptReviveChannelsFor(player);
+            SecondWindEntityService.interruptReviveChannelsFor(player);
+        }
+
         if (SecondWindService.isDowned(player)) {
             SecondWindService.DownedDamageTimerResult timerResult = SecondWindService.DownedDamageTimerResult.NONE;
             if (SecondWindConfig.DOWNED_DAMAGE_REDUCES_TIMER.get()) {
@@ -170,10 +175,6 @@ public final class SecondWindServerEvents {
             }
         }
 
-        if (SecondWindConfig.REVIVE_INTERRUPT_ON_DAMAGE.get()) {
-            SecondWindService.interruptReviveChannelsFor(player);
-            SecondWindEntityService.interruptReviveChannelsFor(player);
-        }
         return true;
     }
 

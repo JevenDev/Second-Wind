@@ -138,8 +138,12 @@ public final class SecondWindService {
     }
 
     public static void failAndKill(ServerPlayer player, FailureReason reason) {
+        failAndKill(player, reason, null);
+    }
+
+    private static void failAndKill(ServerPlayer player, FailureReason reason, DamageSource finishingSource) {
         SecondWindPlayerState state = getState(player);
-        DamageSource damageSource = SecondWindDamageSources.failureSource(player, state, reason);
+        DamageSource damageSource = SecondWindDamageSources.failureSource(player, state, reason, finishingSource);
         failDowned(player, reason);
         // forced death must not depend on cancelable damage or damage mitigation
         float health = player.getHealth();
@@ -421,7 +425,7 @@ public final class SecondWindService {
                         .filter(attacker -> attacker != player)
                         .ifPresent(SecondWindCriteria::triggerFinishHim);
             }
-            failAndKill(player, FailureReason.TIMER_EXPIRED);
+            failAndKill(player, FailureReason.TIMER_EXPIRED, damageSource);
             return DownedDamageTimerResult.EXPIRED;
         }
 
