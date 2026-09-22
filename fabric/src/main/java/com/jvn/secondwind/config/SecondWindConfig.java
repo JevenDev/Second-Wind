@@ -15,6 +15,42 @@ import java.util.Map;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class SecondWindConfig {
+    private static final Map<String, String> LEGACY_KEYS = Map.ofEntries(
+            Map.entry("downedTimerSeconds", "secondWind.downedTimerSeconds"),
+            Map.entry("minimumDownedTimerSeconds", "secondWind.minimumDownedTimerSeconds"),
+            Map.entry("timerPenaltyPerDown", "secondWind.timerPenaltyPerDown"),
+            Map.entry("downedSlownessLevel", "secondWind.downedSlownessLevel"),
+            Map.entry("forceCrawlingPose", "secondWind.forceCrawlingPose"),
+            Map.entry("downedDamageReducesTimer", "secondWind.downedDamageReducesTimer"),
+            Map.entry("downedDamageCooldownTicks", "secondWind.downedDamageCooldownTicks"),
+            Map.entry("downedDamageRegisters", "secondWind.downedDamageRegisters"),
+            Map.entry("downedDamagePlaysHitSound", "secondWind.downedDamagePlaysHitSound"),
+            Map.entry("downedDamageAppliesKnockback", "secondWind.downedDamageAppliesKnockback"),
+            Map.entry("blockHealingWhileDowned", "secondWind.blockHealingWhileDowned"),
+            Map.entry("blockEatingWhileDowned", "secondWind.blockEatingWhileDowned"),
+            Map.entry("reviveHealthHalfHearts", "secondWind.reviveHealthHalfHearts"),
+            Map.entry("reviveRegenerationSeconds", "secondWind.reviveRegenerationSeconds"),
+            Map.entry("postReviveInvulnerabilitySeconds", "secondWind.postReviveInvulnerabilitySeconds"),
+            Map.entry("cooldownMode", "secondWind.cooldownMode"),
+            Map.entry("cooldownDurationSeconds", "secondWind.cooldownDurationSeconds"),
+            Map.entry("resetCooldownOnDeath", "secondWind.resetCooldownOnDeath"),
+            Map.entry("multiplayerRevive", "multiplayerRevive.multiplayerRevive"),
+            Map.entry("reviveChannelSeconds", "multiplayerRevive.reviveChannelSeconds"),
+            Map.entry("reviveDistance", "multiplayerRevive.reviveDistance"),
+            Map.entry("reviveInterruptOnDamage", "multiplayerRevive.reviveInterruptOnDamage"),
+            Map.entry("allowPassiveKills", "killRules.allowPassiveKills"),
+            Map.entry("allowPlayerKills", "killRules.allowPlayerKills"),
+            Map.entry("allowPetKills", "killRules.allowPetKills"),
+            Map.entry("allowVoidSecondWind", "killRules.allowVoidSecondWind"),
+            Map.entry("enableDownedVignette", "clientFeedback.enableDownedVignette"),
+            Map.entry("enableDesaturation", "clientFeedback.enableDesaturation"),
+            Map.entry("enableDownedBloom", "clientFeedback.enableDownedBloom"),
+            Map.entry("enableSounds", "clientFeedback.enableSounds"),
+            Map.entry("enableChatMessages", "clientFeedback.enableChatMessages"),
+            Map.entry("localizeChatMessages", "clientFeedback.localizeChatMessages"),
+            Map.entry("enableSecondWindPopup", "clientFeedback.enableSecondWindPopup"),
+            Map.entry("useSimpleDownedTimer", "clientFeedback.useSimpleDownedTimer"));
+
     public static final ConfigWrapper<?> CONFIG = loadConfig();
 
     public static final ConfigValue<Integer> DOWNED_TIMER_SECONDS = bind("secondWind.downedTimerSeconds", Integer.class);
@@ -51,42 +87,6 @@ public final class SecondWindConfig {
     public static final ConfigValue<Boolean> LOCALIZE_CHAT_MESSAGES = bind("clientFeedback.localizeChatMessages", Boolean.class);
     public static final ConfigValue<Boolean> ENABLE_SECOND_WIND_POPUP = bind("clientFeedback.enableSecondWindPopup", Boolean.class);
     public static final ConfigValue<Boolean> USE_SIMPLE_DOWNED_TIMER = bind("clientFeedback.useSimpleDownedTimer", Boolean.class);
-
-    private static final Map<String, String> LEGACY_KEYS = Map.ofEntries(
-            Map.entry("downedTimerSeconds", "secondWind.downedTimerSeconds"),
-            Map.entry("minimumDownedTimerSeconds", "secondWind.minimumDownedTimerSeconds"),
-            Map.entry("timerPenaltyPerDown", "secondWind.timerPenaltyPerDown"),
-            Map.entry("downedSlownessLevel", "secondWind.downedSlownessLevel"),
-            Map.entry("forceCrawlingPose", "secondWind.forceCrawlingPose"),
-            Map.entry("downedDamageReducesTimer", "secondWind.downedDamageReducesTimer"),
-            Map.entry("downedDamageCooldownTicks", "secondWind.downedDamageCooldownTicks"),
-            Map.entry("downedDamageRegisters", "secondWind.downedDamageRegisters"),
-            Map.entry("downedDamagePlaysHitSound", "secondWind.downedDamagePlaysHitSound"),
-            Map.entry("downedDamageAppliesKnockback", "secondWind.downedDamageAppliesKnockback"),
-            Map.entry("blockHealingWhileDowned", "secondWind.blockHealingWhileDowned"),
-            Map.entry("blockEatingWhileDowned", "secondWind.blockEatingWhileDowned"),
-            Map.entry("reviveHealthHalfHearts", "secondWind.reviveHealthHalfHearts"),
-            Map.entry("reviveRegenerationSeconds", "secondWind.reviveRegenerationSeconds"),
-            Map.entry("postReviveInvulnerabilitySeconds", "secondWind.postReviveInvulnerabilitySeconds"),
-            Map.entry("cooldownMode", "secondWind.cooldownMode"),
-            Map.entry("cooldownDurationSeconds", "secondWind.cooldownDurationSeconds"),
-            Map.entry("resetCooldownOnDeath", "secondWind.resetCooldownOnDeath"),
-            Map.entry("multiplayerRevive", "multiplayerRevive.multiplayerRevive"),
-            Map.entry("reviveChannelSeconds", "multiplayerRevive.reviveChannelSeconds"),
-            Map.entry("reviveDistance", "multiplayerRevive.reviveDistance"),
-            Map.entry("reviveInterruptOnDamage", "multiplayerRevive.reviveInterruptOnDamage"),
-            Map.entry("allowPassiveKills", "killRules.allowPassiveKills"),
-            Map.entry("allowPlayerKills", "killRules.allowPlayerKills"),
-            Map.entry("allowPetKills", "killRules.allowPetKills"),
-            Map.entry("allowVoidSecondWind", "killRules.allowVoidSecondWind"),
-            Map.entry("enableDownedVignette", "clientFeedback.enableDownedVignette"),
-            Map.entry("enableDesaturation", "clientFeedback.enableDesaturation"),
-            Map.entry("enableDownedBloom", "clientFeedback.enableDownedBloom"),
-            Map.entry("enableSounds", "clientFeedback.enableSounds"),
-            Map.entry("enableChatMessages", "clientFeedback.enableChatMessages"),
-            Map.entry("localizeChatMessages", "clientFeedback.localizeChatMessages"),
-            Map.entry("enableSecondWindPopup", "clientFeedback.enableSecondWindPopup"),
-            Map.entry("useSimpleDownedTimer", "clientFeedback.useSimpleDownedTimer"));
 
     private SecondWindConfig() {
     }

@@ -83,13 +83,6 @@ public final class SecondWindEntityService {
                 || policy.damageMode() == EntityBehaviorDefinition.Downed.DamageMode.REDUCE_TIMER ? DamageResult.CANCEL : DamageResult.PASS;
     }
 
-    public static boolean shouldBlockHealing(LivingEntity entity) {
-        if (entity instanceof Player) return false;
-        SecondWindEntityState state = getState(entity);
-        return state.isDowned() && state.policy() != null && state.policy().lifecycle() == EntityBehaviorDefinition.Lifecycle.Type.MANAGED
-                && state.policy().blockHealing();
-    }
-
     public static void tick(LivingEntity entity) {
         if (entity instanceof Player || entity.level().isClientSide()) return;
         SecondWindEntityState state = getState(entity);

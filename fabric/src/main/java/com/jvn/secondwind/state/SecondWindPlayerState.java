@@ -4,13 +4,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.damagesource.DamageSource;
 
 public final class SecondWindPlayerState {
     public static final Codec<SecondWindPlayerState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                    Codec.BOOL.optionalFieldOf("pendingUnsafeExitCooldown", false).forGetter(SecondWindPlayerState::hasPendingUnsafeExitCooldown),
+                    Codec.BOOL.optionalFieldOf("pendingUnsafeExitCooldown", false).forGetter(state -> state.downed || state.pendingUnsafeExitCooldown),
                     Codec.STRING.optionalFieldOf("originalDownedDeathMessage", "").forGetter(state -> state.originalDownedDeathMessage == null ? "" : state.originalDownedDeathMessage),
                     Codec.INT.optionalFieldOf("downPenaltyCount", 0).forGetter(SecondWindPlayerState::getDownPenaltyCount),
                     Codec.LONG.optionalFieldOf("cooldownExpiresGameTime", 0L).forGetter(SecondWindPlayerState::getCooldownExpiresGameTime),
@@ -258,33 +256,4 @@ public final class SecondWindPlayerState {
         clearReviveChannel();
     }
 
-    public CompoundTag serializeNBT(HolderLookup.Provider provider) {
-        CompoundTag tag = new CompoundTag();
-        boolean unsafeExit = downed || pendingUnsafeExitCooldown;
-        tag.putBoolean("PendingUnsafeExitCooldown", unsafeExit);
-        if (unsafeExit && originalDownedDeathMessage != null && !originalDownedDeathMessage.isBlank()) {
-            tag.putString("OriginalDownedDeathMessage", originalDownedDeathMessage);
-        }
-        tag.putInt("DownPenaltyCount", downPenaltyCount);
-        tag.putLong("CooldownExpiresGameTime", cooldownExpiresGameTime);
-        tag.putLong("CooldownExpiresEpochMillis", cooldownExpiresEpochMillis);
-        tag.putLong("LastMcDayUsed", lastMcDayUsed);
-        tag.putBoolean("ConsumedToday", consumedToday);
-        tag.putBoolean("ConsumedSinceSleep", consumedSinceSleep);
-        return tag;
-    }
-
-    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag tag) {
-        clearDownedRuntime();
-        pendingUnsafeExitCooldown = tag.getBoolean("PendingUnsafeExitCooldown");
-        originalDownedDeathMessage = tag.contains("OriginalDownedDeathMessage")
-            ? tag.getString("OriginalDownedDeathMessage")
-            : null;
-        downPenaltyCount = tag.getInt("DownPenaltyCount");
-        cooldownExpiresGameTime = tag.getLong("CooldownExpiresGameTime");
-        cooldownExpiresEpochMillis = tag.getLong("CooldownExpiresEpochMillis");
-        lastMcDayUsed = tag.contains("LastMcDayUsed") ? tag.getLong("LastMcDayUsed") : -1L;
-        consumedToday = tag.getBoolean("ConsumedToday");
-        consumedSinceSleep = tag.getBoolean("ConsumedSinceSleep");
-    }
 }
