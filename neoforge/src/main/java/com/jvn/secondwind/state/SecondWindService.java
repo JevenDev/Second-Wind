@@ -59,6 +59,7 @@ public final class SecondWindService {
         }
 
         enterDowned(player, damageSource);
+        ReviveHealth.prepareRecovery(player);
         player.setHealth(DOWNED_SAFE_HEALTH);
         player.deathTime = 0;
         syncHealth(player);
@@ -616,6 +617,7 @@ public final class SecondWindService {
     }
 
     private static void applyReviveHealthAndEffects(ServerPlayer player) {
+        ReviveHealth.prepareRecovery(player);
         int regenTicks = SecondWindConfig.REVIVE_REGENERATION_SECONDS.get() * TICKS_PER_SECOND;
         player.setHealth(ReviveHealth.restoredHealth(player.getHealth(), player.getMaxHealth(),
                 SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue(), regenTicks > 0));
