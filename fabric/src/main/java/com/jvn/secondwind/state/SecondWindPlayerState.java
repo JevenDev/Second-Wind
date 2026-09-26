@@ -243,6 +243,17 @@ public final class SecondWindPlayerState {
         this.originalDownedDeathMessage = originalDownedDeathMessage;
     }
 
+    public void resetForRepair() {
+        clearDownedRuntime();
+        pendingUnsafeExitCooldown = false;
+        downPenaltyCount = 0;
+        cooldownExpiresGameTime = 0L;
+        cooldownExpiresEpochMillis = 0L;
+        lastMcDayUsed = -1L;
+        consumedToday = false;
+        consumedSinceSleep = false;
+    }
+
     public void clearDownedRuntime() {
         downed = false;
         downedTicksRemaining = 0;

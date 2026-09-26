@@ -3,6 +3,7 @@ package com.jvn.secondwind.state;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.api.AnnouncementMessage;
 import com.jvn.secondwind.api.ChatMessageManager;
+import com.jvn.secondwind.common.PlayerRepair;
 import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.common.ReviveHoldTiming;
 import com.jvn.secondwind.config.CooldownMode;
@@ -126,6 +127,24 @@ public final class SecondWindService {
         announcePlayerRevived(player, reason);
         SecondWindCriteria.triggerRevive(player, reason, remainingTicks, LAST_SECOND_REVIVE_TICKS, reviver, downer);
         SecondWindNetworking.syncToPlayer(player, true);
+    }
+
+    public static PlayerRepair.Result repair(ServerPlayer player) {
+        PlayerRepair.Result result = PlayerRepair.repairVitals(player, SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue());
+        if (result != PlayerRepair.Result.SUCCESS) {
+            return result;
+        }
+        SecondWindPlayerState state = getState(player);
+        clearDownedMobilityEffects(player);
+        if (player.getForcedPose() == Pose.SWIMMING) {
+            player.setForcedPose(null);
+        }
+        state.resetForRepair();
+        releaseReviveChannelsFor(player);
+        SecondWindEntityService.interruptReviveChannelsFor(player);
+        syncHealth(player);
+        SecondWindNetworking.syncToPlayer(player);
+        return PlayerRepair.Result.SUCCESS;
     }
 
     public static void failDowned(ServerPlayer player, FailureReason reason) {

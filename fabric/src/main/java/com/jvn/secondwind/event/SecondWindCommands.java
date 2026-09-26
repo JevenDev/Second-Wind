@@ -1,5 +1,6 @@
 package com.jvn.secondwind.event;
 
+import com.jvn.secondwind.common.PlayerRepair;
 import com.jvn.secondwind.state.ReviveReason;
 import com.jvn.secondwind.state.SecondWindService;
 import com.mojang.brigadier.CommandDispatcher;
@@ -26,7 +27,10 @@ public final class SecondWindCommands {
         dispatcher.register(Commands.literal("secondwind")
                 .requires(source -> source.hasPermission(ADMIN_PERMISSION_LEVEL))
                 .then(buildReviveCommand("revive"))
-                .then(buildDownCommand("down")));
+                .then(buildDownCommand("down"))
+                .then(Commands.literal("repair")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> repairPlayer(context.getSource(), EntityArgument.getPlayer(context, "player"))))));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildReviveCommand(String name) {
@@ -73,6 +77,21 @@ public final class SecondWindCommands {
         source.sendSuccess(
                 () -> Component.translatable("commands.secondwind.revive.single.success", player.getDisplayName()),
                 true);
+        return 1;
+    }
+
+    private static int repairPlayer(CommandSourceStack source, ServerPlayer player) {
+        PlayerRepair.Result result = SecondWindService.repair(player);
+        if (result != PlayerRepair.Result.SUCCESS) {
+            String message = switch (result) {
+                case NEEDS_RESPAWN -> "commands.secondwind.repair.needs_respawn";
+                case INVALID_MAX_HEALTH -> "commands.secondwind.repair.invalid_max_health";
+                default -> throw new IllegalStateException("Unexpected repair result: " + result);
+            };
+            source.sendFailure(Component.translatable(message, player.getDisplayName()));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable("commands.secondwind.repair.success", player.getDisplayName()), true);
         return 1;
     }
 

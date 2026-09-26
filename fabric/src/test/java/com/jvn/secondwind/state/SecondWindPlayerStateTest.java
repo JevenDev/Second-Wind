@@ -53,6 +53,70 @@ final class SecondWindPlayerStateTest {
         assertEquals(0L, loaded.getCooldownExpiresEpochMillis());
     }
 
+    @Test
+    void repairClearsRuntimeAndPersistentRecoveryState() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDowned(true);
+        state.setDownedTicksRemaining(100);
+        state.setDownedMaxTicks(200);
+        state.setDownedStartGameTime(42L);
+        state.setLastDownedDamageGameTime(50L);
+        state.setDownedByPlayer(java.util.UUID.randomUUID());
+        state.setForcedDeathFlow(true);
+        state.setPendingUnsafeExitCooldown(true);
+        state.setOriginalDownedDeathMessage("stale death message");
+        state.setReviveChannel(java.util.UUID.randomUUID(), 40);
+        state.setReviveChannelTicks(20);
+        state.setReviveChannelLastHoldGameTime(60L);
+        state.setDownPenaltyCount(3);
+        state.setCooldownExpiresGameTime(800L);
+        state.setCooldownExpiresEpochMillis(123456L);
+        state.setLastMcDayUsed(4L);
+        state.setConsumedToday(true);
+        state.setConsumedSinceSleep(true);
+
+        state.resetForRepair();
+
+        assertFalse(state.isDowned());
+        assertFalse(state.isForcedDeathFlow());
+        assertEquals(0, state.getDownedTicksRemaining());
+        assertEquals(0, state.getDownedMaxTicks());
+        assertEquals(0L, state.getDownedStartGameTime());
+        assertEquals(0L, state.getLastDownedDamageGameTime());
+        assertTrue(state.getDownedByPlayer().isEmpty());
+        assertTrue(state.getReviveChannelReviver().isEmpty());
+        assertEquals(0, state.getReviveChannelTicks());
+        assertEquals(0, state.getReviveChannelRequiredTicks());
+        assertEquals(0L, state.getReviveChannelLastHoldGameTime());
+        assertNull(state.getOriginalDownedDeathMessage());
+        assertNull(state.getOriginalDownedDamageSource());
+        SecondWindPlayerState loaded = roundTrip(state);
+        assertFalse(loaded.hasPendingUnsafeExitCooldown());
+        assertEquals(0, loaded.getDownPenaltyCount());
+        assertEquals(0L, loaded.getCooldownExpiresGameTime());
+        assertEquals(0L, loaded.getCooldownExpiresEpochMillis());
+        assertEquals(-1L, loaded.getLastMcDayUsed());
+        assertFalse(loaded.hasConsumedToday());
+        assertFalse(loaded.hasConsumedSinceSleep());
+    }
+
+    @Test
+    void repairAlsoClearsStaleFlagsAfterTheDownedStateHasAlreadyEnded() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setForcedDeathFlow(true);
+        state.setPendingUnsafeExitCooldown(true);
+        state.setReviveChannel(java.util.UUID.randomUUID(), 40);
+
+        state.resetForRepair();
+        state.resetForRepair();
+
+        assertFalse(state.isDowned());
+        assertFalse(state.isForcedDeathFlow());
+        assertFalse(roundTrip(state).hasPendingUnsafeExitCooldown());
+        assertTrue(state.getReviveChannelReviver().isEmpty());
+        assertEquals(0, state.getDownPenaltyCount());
+    }
+
     private static SecondWindPlayerState roundTrip(SecondWindPlayerState state) {
         return SecondWindPlayerState.CODEC.parse(JsonOps.INSTANCE,
                 SecondWindPlayerState.CODEC.encodeStart(JsonOps.INSTANCE, state).getOrThrow()).getOrThrow();

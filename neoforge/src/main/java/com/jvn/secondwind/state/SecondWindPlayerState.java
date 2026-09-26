@@ -218,6 +218,18 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
         this.originalDownedDeathMessage = originalDownedDeathMessage;
     }
 
+    public void resetForRepair() {
+        clearDownedRuntime();
+        forcedCrawlingPoseApplied = false;
+        pendingUnsafeExitCooldown = false;
+        downPenaltyCount = 0;
+        cooldownExpiresGameTime = 0L;
+        cooldownExpiresEpochMillis = 0L;
+        lastMcDayUsed = -1L;
+        consumedToday = false;
+        consumedSinceSleep = false;
+    }
+
     public void clearDownedRuntime() {
         downed = false;
         downedTicksRemaining = 0;
