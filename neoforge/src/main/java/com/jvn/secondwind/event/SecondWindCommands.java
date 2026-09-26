@@ -88,6 +88,8 @@ public final class SecondWindCommands {
             String message = switch (result) {
                 case NEEDS_RESPAWN -> "commands.secondwind.repair.needs_respawn";
                 case INVALID_MAX_HEALTH -> "commands.secondwind.repair.invalid_max_health";
+                case INVALID_MAX_ABSORPTION -> "commands.secondwind.repair.invalid_max_absorption";
+                case RECOVERY_FAILED -> "commands.secondwind.repair.failed";
                 default -> throw new IllegalStateException("Unexpected repair result: " + result);
             };
             source.sendFailure(Component.translatable(message, player.getDisplayName()));
