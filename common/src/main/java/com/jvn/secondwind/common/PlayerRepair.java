@@ -29,9 +29,7 @@ public final class PlayerRepair {
     }
 
     static boolean hasHealthyVitals(float health, float maxHealth, float absorption, float maxAbsorption) {
-        return checkVitals(health, maxHealth, maxAbsorption) == Result.SUCCESS
-                && Float.isFinite(health) && health > 0.0F && health <= maxHealth
-                && Float.isFinite(absorption) && absorption >= 0.0F && absorption <= maxAbsorption;
+        return ReviveHealth.hasHealthyVitals(health, maxHealth, absorption, maxAbsorption);
     }
 
     public static Result repairVitals(ServerPlayer player, float configuredHealth) {

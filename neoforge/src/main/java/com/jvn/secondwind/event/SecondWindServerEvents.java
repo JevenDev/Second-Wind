@@ -2,6 +2,7 @@ package com.jvn.secondwind.event;
 
 import com.jvn.secondwind.SecondWindMod;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
+import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.state.FailureReason;
@@ -62,6 +63,7 @@ public final class SecondWindServerEvents {
         if (state.isDowned()) {
             triggerFinishHim(event, player, state);
             SecondWindService.failDowned(player, FailureReason.INVALID_STATE);
+            ReviveHealth.setDeathHealth(player);
             event.setCanceled(false);
             handleKillToRevive(event);
             return;
@@ -76,9 +78,13 @@ public final class SecondWindServerEvents {
             return;
         }
 
-        event.setCanceled(true);
-        SecondWindService.down(player, event.getSource());
-        handleDowningToRevive(player, event.getSource());
+        if (SecondWindService.down(player, event.getSource())) {
+            event.setCanceled(true);
+            handleDowningToRevive(player, event.getSource());
+        } else {
+            ReviveHealth.setDeathHealth(player);
+            handleKillToRevive(event);
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
@@ -203,7 +209,8 @@ public final class SecondWindServerEvents {
         }
 
         if (SecondWindService.isDowned(player) && event.getSource().is(DamageTypes.GENERIC_KILL)) {
-            SecondWindService.failDowned(player, FailureReason.INVALID_STATE);
+            SecondWindService.finishDowned(player, event.getSource());
+            event.setCanceled(true);
             return;
         }
 

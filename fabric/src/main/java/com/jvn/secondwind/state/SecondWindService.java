@@ -52,7 +52,8 @@ public final class SecondWindService {
     }
 
     public static boolean canEnterDownedState(ServerPlayer player) {
-        return !isDowned(player) && !player.isCreative() && !player.isSpectator();
+        return !isDowned(player) && !getState(player).isForcedDeathFlow()
+                && !player.isRemoved() && !player.isCreative() && !player.isSpectator();
     }
 
     public static boolean down(ServerPlayer player, DamageSource damageSource) {
@@ -60,9 +61,10 @@ public final class SecondWindService {
             return false;
         }
 
+        if (!ReviveHealth.trySetHealth(player, DOWNED_SAFE_HEALTH)) {
+            return false;
+        }
         enterDowned(player, damageSource);
-        ReviveHealth.prepareRecovery(player);
-        player.setHealth(DOWNED_SAFE_HEALTH);
         player.deathTime = 0;
         syncHealth(player);
         player.fallDistance = 0.0F;
@@ -111,7 +113,14 @@ public final class SecondWindService {
     }
 
     public static void revive(ServerPlayer player, ReviveReason reason) {
+        tryRevive(player, reason);
+    }
+
+    public static boolean tryRevive(ServerPlayer player, ReviveReason reason) {
         SecondWindPlayerState state = getState(player);
+        if (!state.isDowned() || state.isForcedDeathFlow() || player.isRemoved()) {
+            return false;
+        }
         int remainingTicks = state.getDownedTicksRemaining();
         ServerPlayer reviver = state.getReviveChannelReviver()
                 .map(player.server.getPlayerList()::getPlayer)
@@ -119,15 +128,20 @@ public final class SecondWindService {
         ServerPlayer downer = state.getDownedByPlayer()
             .map(player.server.getPlayerList()::getPlayer)
             .orElse(null);
+        float currentHealth = player.getHealth();
+        if ((Float.isFinite(currentHealth) && currentHealth <= 0.0F) || !applyReviveHealthAndEffects(player)) {
+            failAndKill(player, FailureReason.INVALID_STATE);
+            return false;
+        }
         state.clearDownedRuntime();
         clearDownedMobilityEffects(player);
         state.incrementDownPenaltyCount();
-        applyReviveHealthAndEffects(player);
         applyCooldown(player);
         spawnRevivePopParticles(player);
         announcePlayerRevived(player, reason);
         SecondWindCriteria.triggerRevive(player, reason, remainingTicks, LAST_SECOND_REVIVE_TICKS, reviver, downer);
         SecondWindNetworking.syncToPlayer(player, true);
+        return true;
     }
 
     public static PlayerRepair.Result repair(ServerPlayer player) {
@@ -163,10 +177,22 @@ public final class SecondWindService {
         SecondWindPlayerState state = getState(player);
         DamageSource damageSource = SecondWindDamageSources.failureSource(player, state, reason, finishingSource);
         failDowned(player, reason);
+        completeDeath(player, damageSource);
+    }
+
+    public static void finishDowned(ServerPlayer player, DamageSource damageSource) {
+        if (!isDowned(player)) {
+            return;
+        }
+        failDowned(player, FailureReason.INVALID_STATE);
+        completeDeath(player, damageSource);
+    }
+
+    private static void completeDeath(ServerPlayer player, DamageSource damageSource) {
         // forced death must not depend on cancelable damage or damage mitigation
         float health = player.getHealth();
         player.getCombatTracker().recordDamage(damageSource, Float.isFinite(health) ? Math.max(1.0F, health) : 1.0F);
-        player.setHealth(0.0F);
+        ReviveHealth.setDeathHealth(player);
         player.invulnerableTime = 0;
         player.die(damageSource);
     }
@@ -178,7 +204,7 @@ public final class SecondWindService {
             return;
         }
 
-        if (!player.isAlive()) {
+        if (state.isForcedDeathFlow() || !ReviveHealth.maintainDownedVitals(player)) {
             failAndKill(player, FailureReason.INVALID_STATE);
             return;
         }
@@ -233,8 +259,7 @@ public final class SecondWindService {
         int requiredTicks = (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * TICKS_PER_SECOND);
         if (requiredTicks <= 0) {
             state.setReviveChannel(reviver.getUUID(), 0);
-            revive(downedPlayer, ReviveReason.PLAYER_REVIVE);
-            return true;
+            return tryRevive(downedPlayer, ReviveReason.PLAYER_REVIVE);
         }
 
         long gameTime = downedPlayer.serverLevel().getGameTime();
@@ -574,8 +599,9 @@ public final class SecondWindService {
         state.setReviveChannelTicks(state.getReviveChannelTicks() + 1);
 
         if (state.getReviveChannelTicks() >= state.getReviveChannelRequiredTicks()) {
-            revive(downedPlayer, ReviveReason.PLAYER_REVIVE);
-            reviver.displayClientMessage(Component.translatable("hud.secondwind.revived"), true);
+            if (tryRevive(downedPlayer, ReviveReason.PLAYER_REVIVE)) {
+                reviver.displayClientMessage(Component.translatable("hud.secondwind.revived"), true);
+            }
         } else if (state.getReviveChannelTicks() % 5 == 0) {
             SecondWindNetworking.syncToPlayer(downedPlayer);
         }
@@ -629,11 +655,13 @@ public final class SecondWindService {
                 player.getFoodData().getFoodLevel(), player.getFoodData().getSaturationLevel()));
     }
 
-    private static void applyReviveHealthAndEffects(ServerPlayer player) {
-        ReviveHealth.prepareRecovery(player);
+    private static boolean applyReviveHealthAndEffects(ServerPlayer player) {
         int regenTicks = SecondWindConfig.REVIVE_REGENERATION_SECONDS.get() * TICKS_PER_SECOND;
-        player.setHealth(ReviveHealth.restoredHealth(player.getHealth(), player.getMaxHealth(),
-                SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue(), regenTicks > 0));
+        float health = ReviveHealth.restoredHealth(player.getHealth(), player.getMaxHealth(),
+                SecondWindConfig.REVIVE_HEALTH_HALF_HEARTS.get().floatValue(), regenTicks > 0);
+        if (!ReviveHealth.trySetHealth(player, health)) {
+            return false;
+        }
         player.deathTime = 0;
         syncHealth(player);
         if (regenTicks > 0) {
@@ -648,5 +676,6 @@ public final class SecondWindService {
         if (SecondWindConfig.ENABLE_SOUNDS.get()) {
             player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.4F);
         }
+        return true;
     }
 }

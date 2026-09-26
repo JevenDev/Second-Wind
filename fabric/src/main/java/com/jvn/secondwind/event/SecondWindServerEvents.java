@@ -1,6 +1,7 @@
 package com.jvn.secondwind.event;
 
 import com.jvn.secondwind.advancement.SecondWindCriteria;
+import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.state.FailureReason;
@@ -125,6 +126,7 @@ public final class SecondWindServerEvents {
         SecondWindPlayerState state = SecondWindService.getState(player);
         if (state.isForcedDeathFlow() || state.isDowned()) {
             triggerFinishHim(source, player, state);
+            ReviveHealth.setDeathHealth(player);
             return true;
         }
 
@@ -132,9 +134,12 @@ public final class SecondWindServerEvents {
             return true;
         }
 
-        SecondWindService.down(player, source);
-        handleDowningToRevive(player, source);
-        return false;
+        if (SecondWindService.down(player, source)) {
+            handleDowningToRevive(player, source);
+            return false;
+        }
+        ReviveHealth.setDeathHealth(player);
+        return true;
     }
 
     private static void afterDeath(LivingEntity entity, DamageSource source) {
@@ -151,8 +156,8 @@ public final class SecondWindServerEvents {
         }
 
         if (SecondWindService.isDowned(player) && source.is(DamageTypes.GENERIC_KILL)) {
-            SecondWindService.failDowned(player, FailureReason.INVALID_STATE);
-            return true;
+            SecondWindService.finishDowned(player, source);
+            return false;
         }
 
         if (SecondWindConfig.REVIVE_INTERRUPT_ON_DAMAGE.get()) {
