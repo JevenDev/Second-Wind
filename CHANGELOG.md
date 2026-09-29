@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.2 - 2026-09-29
+
+### Added
+
+- Added `/secondwind repair <player>` for admins to recover stuck players and reset their Second Wind cooldowns and down penalties
+
+### Changed
+
+- Changed the downed vignette to use pulsing red haze, darkened edges, and subtle edge distortion that intensify as bleedout approaches
+- Changed revive progress to use server-confirmed progress
+- Changed downed player synchronization and timer rendering to reduce unnecessary network traffic and entity scanning
+
+### Fixed
+
+- Fixed revive channels repeatedly resetting under network latency and continuing after the revive button was released
+- Fixed inconsistent player death and revival state, including health synchronization and forced deaths that did not complete the player death lifecycle
+- Fixed `/kill` being blocked by downed damage protection
+- Fixed kill credit being lost when damage exhausted a downed player's timer
+- Fixed invalid health and absorption values leaving players stuck during downing or recovery
+- Fixed admin down and revive commands reporting success when the transition failed
+- Fixed dead managed entities having their health restored while still tracked as downed
+- Fixed Fabric legacy config migration failing during initialization
+- Fixed Fabric losing the unsafe-exit cooldown when the server crashed while a player was downed
+- Fixed downed shader timing and restored the downed bloom effect
+
 ## 1.1.1 - 2026-08-16
 
 ### Changed
