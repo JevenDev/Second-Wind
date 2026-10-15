@@ -11,6 +11,7 @@ public final class SecondWindPlayerState {
                     Codec.BOOL.optionalFieldOf("pendingUnsafeExitCooldown", false).forGetter(state -> state.downed || state.pendingUnsafeExitCooldown),
                     Codec.STRING.optionalFieldOf("originalDownedDeathMessage", "").forGetter(state -> state.originalDownedDeathMessage == null ? "" : state.originalDownedDeathMessage),
                     Codec.INT.optionalFieldOf("downPenaltyCount", 0).forGetter(SecondWindPlayerState::getDownPenaltyCount),
+                    Codec.INT.optionalFieldOf("downPenaltyRecoveryTicks", 0).forGetter(SecondWindPlayerState::getDownPenaltyRecoveryTicks),
                     Codec.LONG.optionalFieldOf("cooldownExpiresGameTime", 0L).forGetter(SecondWindPlayerState::getCooldownExpiresGameTime),
                     Codec.LONG.optionalFieldOf("cooldownExpiresEpochMillis", 0L).forGetter(SecondWindPlayerState::getCooldownExpiresEpochMillis),
                     Codec.LONG.optionalFieldOf("lastMcDayUsed", -1L).forGetter(SecondWindPlayerState::getLastMcDayUsed),
@@ -25,6 +26,7 @@ public final class SecondWindPlayerState {
     private long lastDownedDamageGameTime;
     private UUID downedByPlayer;
     private int downPenaltyCount;
+    private int downPenaltyRecoveryTicks;
     private long cooldownExpiresGameTime;
     private long lastMcDayUsed = -1L;
     private boolean consumedToday;
@@ -46,6 +48,7 @@ public final class SecondWindPlayerState {
             boolean pendingUnsafeExitCooldown,
             String originalDownedDeathMessage,
             int downPenaltyCount,
+            int downPenaltyRecoveryTicks,
             long cooldownExpiresGameTime,
             long cooldownExpiresEpochMillis,
             long lastMcDayUsed,
@@ -56,6 +59,7 @@ public final class SecondWindPlayerState {
                 ? null
                 : originalDownedDeathMessage;
         this.downPenaltyCount = Math.max(0, downPenaltyCount);
+        this.downPenaltyRecoveryTicks = Math.max(0, downPenaltyRecoveryTicks);
         this.cooldownExpiresGameTime = Math.max(0L, cooldownExpiresGameTime);
         this.cooldownExpiresEpochMillis = Math.max(0L, cooldownExpiresEpochMillis);
         this.lastMcDayUsed = lastMcDayUsed;
@@ -117,10 +121,27 @@ public final class SecondWindPlayerState {
 
     public void setDownPenaltyCount(int downPenaltyCount) {
         this.downPenaltyCount = Math.max(0, downPenaltyCount);
+        this.downPenaltyRecoveryTicks = 0;
     }
 
     public void incrementDownPenaltyCount() {
         this.downPenaltyCount++;
+        this.downPenaltyRecoveryTicks = 0;
+    }
+
+    public int getDownPenaltyRecoveryTicks() {
+        return downPenaltyRecoveryTicks;
+    }
+
+    public void tickDownPenaltyRecovery(int resetAfterTicks) {
+        if (downed || forcedDeathFlow || pendingUnsafeExitCooldown || downPenaltyCount <= 0 || resetAfterTicks <= 0) {
+            return;
+        }
+        if (downPenaltyRecoveryTicks >= resetAfterTicks - 1) {
+            setDownPenaltyCount(0);
+        } else {
+            downPenaltyRecoveryTicks++;
+        }
     }
 
     public long getCooldownExpiresGameTime() {
@@ -247,6 +268,7 @@ public final class SecondWindPlayerState {
         clearDownedRuntime();
         pendingUnsafeExitCooldown = false;
         downPenaltyCount = 0;
+        downPenaltyRecoveryTicks = 0;
         cooldownExpiresGameTime = 0L;
         cooldownExpiresEpochMillis = 0L;
         lastMcDayUsed = -1L;

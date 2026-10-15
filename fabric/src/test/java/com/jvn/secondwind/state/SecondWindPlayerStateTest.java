@@ -46,11 +46,114 @@ final class SecondWindPlayerStateTest {
                         """)).getOrThrow();
         assertTrue(loaded.hasPendingUnsafeExitCooldown());
         assertEquals(3, loaded.getDownPenaltyCount());
+        assertEquals(0, loaded.getDownPenaltyRecoveryTicks());
         assertEquals(800L, loaded.getCooldownExpiresGameTime());
         assertEquals(4L, loaded.getLastMcDayUsed());
         assertTrue(loaded.hasConsumedToday());
         assertTrue(loaded.hasConsumedSinceSleep());
         assertEquals(0L, loaded.getCooldownExpiresEpochMillis());
+    }
+
+    @Test
+    void recoveryClearsAllPenaltiesAtTheConfiguredBoundaryWithoutClearingCooldown() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(3);
+        state.setCooldownExpiresGameTime(800L);
+        state.setCooldownExpiresEpochMillis(123456L);
+        state.setLastMcDayUsed(4L);
+        state.setConsumedToday(true);
+        state.setConsumedSinceSleep(true);
+
+        state.tickDownPenaltyRecovery(2);
+        assertEquals(3, state.getDownPenaltyCount());
+        assertEquals(1, state.getDownPenaltyRecoveryTicks());
+        state.tickDownPenaltyRecovery(2);
+        assertEquals(0, state.getDownPenaltyCount());
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
+        assertEquals(800L, state.getCooldownExpiresGameTime());
+        assertEquals(123456L, state.getCooldownExpiresEpochMillis());
+        assertEquals(4L, state.getLastMcDayUsed());
+        assertTrue(state.hasConsumedToday());
+        assertTrue(state.hasConsumedSinceSleep());
+    }
+
+    @Test
+    void disabledRecoveryPreservesPenaltiesAndProgress() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.tickDownPenaltyRecovery(20);
+        state.tickDownPenaltyRecovery(0);
+        assertEquals(2, state.getDownPenaltyCount());
+        assertEquals(1, state.getDownPenaltyRecoveryTicks());
+    }
+
+    @Test
+    void recoveryPausesDuringDownedAndDeathFlows() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.setDowned(true);
+        state.tickDownPenaltyRecovery(1);
+        state.setDowned(false);
+        state.setForcedDeathFlow(true);
+        state.tickDownPenaltyRecovery(1);
+        state.setForcedDeathFlow(false);
+        state.setPendingUnsafeExitCooldown(true);
+        state.tickDownPenaltyRecovery(1);
+        assertEquals(2, state.getDownPenaltyCount());
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
+    }
+
+    @Test
+    void anotherDownRestartsRecovery() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.tickDownPenaltyRecovery(2);
+        state.incrementDownPenaltyCount();
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
+        state.tickDownPenaltyRecovery(2);
+        assertEquals(3, state.getDownPenaltyCount());
+        state.tickDownPenaltyRecovery(2);
+        assertEquals(0, state.getDownPenaltyCount());
+    }
+
+    @Test
+    void recoveryProgressSurvivesSavingAndResumes() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.tickDownPenaltyRecovery(2);
+        SecondWindPlayerState loaded = roundTrip(state);
+        assertEquals(1, loaded.getDownPenaltyRecoveryTicks());
+        loaded.tickDownPenaltyRecovery(2);
+        assertEquals(0, loaded.getDownPenaltyCount());
+    }
+
+    @Test
+    void manualResetAndRepairClearRecoveryProgress() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.tickDownPenaltyRecovery(2);
+        state.setDownPenaltyCount(0);
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
+        state.incrementDownPenaltyCount();
+        state.tickDownPenaltyRecovery(2);
+        state.resetForRepair();
+        assertEquals(0, roundTrip(state).getDownPenaltyRecoveryTicks());
+    }
+
+    @Test
+    void shorterConfiguredDelayAppliesToExistingProgress() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.tickDownPenaltyRecovery(20);
+        state.tickDownPenaltyRecovery(1);
+        assertEquals(0, state.getDownPenaltyCount());
+    }
+
+    @Test
+    void recoveryDoesNotAccumulateWithoutAPenalty() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.tickDownPenaltyRecovery(20);
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
     }
 
     @Test

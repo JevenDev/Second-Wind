@@ -203,6 +203,9 @@ public final class SecondWindService {
         SecondWindPlayerState state = getState(player);
         if (!state.isDowned()) {
             resetCooldownForNewDayIfNeeded(player);
+            if (player.isAlive() && !player.isRemoved()) {
+                state.tickDownPenaltyRecovery(SecondWindConfig.TIMER_PENALTY_RESET_SECONDS.get() * TICKS_PER_SECOND);
+            }
             return;
         }
 
@@ -382,10 +385,13 @@ public final class SecondWindService {
     }
 
     public static void resetCooldownForSleep(ServerPlayer player) {
+        SecondWindPlayerState state = getState(player);
+        if (SecondWindConfig.RESET_TIMER_PENALTY_ON_SLEEP.get()) {
+            state.setDownPenaltyCount(0);
+        }
         if (SecondWindConfig.COOLDOWN_MODE.get() != CooldownMode.ON_SLEEP) {
             return;
         }
-        SecondWindPlayerState state = getState(player);
         state.setConsumedSinceSleep(false);
         state.setCooldownExpiresGameTime(0L);
         state.setCooldownExpiresEpochMillis(0L);

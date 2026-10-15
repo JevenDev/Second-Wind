@@ -15,6 +15,7 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
     private long lastDownedDamageGameTime;
     private UUID downedByPlayer;
     private int downPenaltyCount;
+    private int downPenaltyRecoveryTicks;
     private long cooldownExpiresGameTime;
     private long lastMcDayUsed = -1L;
     private boolean consumedToday;
@@ -84,10 +85,27 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
 
     public void setDownPenaltyCount(int downPenaltyCount) {
         this.downPenaltyCount = Math.max(0, downPenaltyCount);
+        this.downPenaltyRecoveryTicks = 0;
     }
 
     public void incrementDownPenaltyCount() {
         this.downPenaltyCount++;
+        this.downPenaltyRecoveryTicks = 0;
+    }
+
+    public int getDownPenaltyRecoveryTicks() {
+        return downPenaltyRecoveryTicks;
+    }
+
+    public void tickDownPenaltyRecovery(int resetAfterTicks) {
+        if (downed || forcedDeathFlow || pendingUnsafeExitCooldown || downPenaltyCount <= 0 || resetAfterTicks <= 0) {
+            return;
+        }
+        if (downPenaltyRecoveryTicks >= resetAfterTicks - 1) {
+            setDownPenaltyCount(0);
+        } else {
+            downPenaltyRecoveryTicks++;
+        }
     }
 
     public long getCooldownExpiresGameTime() {
@@ -223,6 +241,7 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
         forcedCrawlingPoseApplied = false;
         pendingUnsafeExitCooldown = false;
         downPenaltyCount = 0;
+        downPenaltyRecoveryTicks = 0;
         cooldownExpiresGameTime = 0L;
         cooldownExpiresEpochMillis = 0L;
         lastMcDayUsed = -1L;
@@ -252,6 +271,7 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
             tag.putString("OriginalDownedDeathMessage", originalDownedDeathMessage);
         }
         tag.putInt("DownPenaltyCount", downPenaltyCount);
+        tag.putInt("DownPenaltyRecoveryTicks", downPenaltyRecoveryTicks);
         tag.putLong("CooldownExpiresGameTime", cooldownExpiresGameTime);
         tag.putLong("CooldownExpiresEpochMillis", cooldownExpiresEpochMillis);
         tag.putLong("LastMcDayUsed", lastMcDayUsed);
@@ -268,6 +288,7 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
             ? tag.getString("OriginalDownedDeathMessage")
             : null;
         downPenaltyCount = tag.getInt("DownPenaltyCount");
+        downPenaltyRecoveryTicks = Math.max(0, tag.getInt("DownPenaltyRecoveryTicks"));
         cooldownExpiresGameTime = tag.getLong("CooldownExpiresGameTime");
         cooldownExpiresEpochMillis = tag.getLong("CooldownExpiresEpochMillis");
         lastMcDayUsed = tag.contains("LastMcDayUsed") ? tag.getLong("LastMcDayUsed") : -1L;
