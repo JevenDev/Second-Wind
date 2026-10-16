@@ -92,6 +92,9 @@ public final class SecondWindService {
 
     public static void enterDowned(ServerPlayer player, DamageSource damageSource) {
         SecondWindPlayerState state = getState(player);
+        if (SecondWindConfig.TIMER_PENALTY_RESET_SECONDS.get() == 0) {
+            state.setDownPenaltyCount(0);
+        }
         int timerSeconds = Math.max(
                 SecondWindConfig.MINIMUM_DOWNED_TIMER_SECONDS.get(),
                 SecondWindConfig.DOWNED_TIMER_SECONDS.get()
@@ -136,7 +139,11 @@ public final class SecondWindService {
         }
         state.clearDownedRuntime();
         clearDownedMobilityEffects(player);
-        state.incrementDownPenaltyCount();
+        if (SecondWindConfig.TIMER_PENALTY_RESET_SECONDS.get() == 0) {
+            state.setDownPenaltyCount(0);
+        } else {
+            state.incrementDownPenaltyCount();
+        }
         applyCooldown(player);
         spawnRevivePopParticles(player);
         announcePlayerRevived(player, reason);

@@ -78,13 +78,47 @@ final class SecondWindPlayerStateTest {
     }
 
     @Test
-    void disabledRecoveryPreservesPenaltiesAndProgress() {
+    void zeroDelayClearsExistingPenaltiesAndProgressWithoutClearingCooldown() {
         SecondWindPlayerState state = new SecondWindPlayerState();
         state.setDownPenaltyCount(2);
+        state.setCooldownExpiresEpochMillis(123456L);
         state.tickDownPenaltyRecovery(20);
         state.tickDownPenaltyRecovery(0);
+        assertEquals(0, state.getDownPenaltyCount());
+        assertEquals(0, state.getDownPenaltyRecoveryTicks());
+        assertEquals(123456L, state.getCooldownExpiresEpochMillis());
+    }
+
+    @Test
+    void oneSecondDelayRequiresTwentyEligibleTicks() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        for (int tick = 0; tick < 19; tick++) {
+            state.tickDownPenaltyRecovery(20);
+        }
         assertEquals(2, state.getDownPenaltyCount());
-        assertEquals(1, state.getDownPenaltyRecoveryTicks());
+        state.tickDownPenaltyRecovery(20);
+        assertEquals(0, state.getDownPenaltyCount());
+    }
+
+    @Test
+    void zeroDelayWaitsUntilTheDownedAndDeathFlowsEnd() {
+        SecondWindPlayerState state = new SecondWindPlayerState();
+        state.setDownPenaltyCount(2);
+        state.setDowned(true);
+        state.tickDownPenaltyRecovery(0);
+        assertEquals(2, state.getDownPenaltyCount());
+        state.setDowned(false);
+        state.setForcedDeathFlow(true);
+        state.tickDownPenaltyRecovery(0);
+        assertEquals(2, state.getDownPenaltyCount());
+        state.setForcedDeathFlow(false);
+        state.setPendingUnsafeExitCooldown(true);
+        state.tickDownPenaltyRecovery(0);
+        assertEquals(2, state.getDownPenaltyCount());
+        state.setPendingUnsafeExitCooldown(false);
+        state.tickDownPenaltyRecovery(0);
+        assertEquals(0, state.getDownPenaltyCount());
     }
 
     @Test

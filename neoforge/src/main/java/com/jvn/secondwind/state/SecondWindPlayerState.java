@@ -98,7 +98,7 @@ public final class SecondWindPlayerState implements INBTSerializable<CompoundTag
     }
 
     public void tickDownPenaltyRecovery(int resetAfterTicks) {
-        if (downed || forcedDeathFlow || pendingUnsafeExitCooldown || downPenaltyCount <= 0 || resetAfterTicks <= 0) {
+        if (downed || forcedDeathFlow || pendingUnsafeExitCooldown || downPenaltyCount <= 0 || resetAfterTicks < 0) {
             return;
         }
         if (downPenaltyRecoveryTicks >= resetAfterTicks - 1) {
