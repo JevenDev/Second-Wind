@@ -37,7 +37,7 @@ public final class SecondWindConfigModel {
         public int timerPenaltyPerDown = 2;
 
         @RangeConstraint(min = 0, max = 86400)
-        public int timerPenaltyResetSeconds = 0;
+        public int timerPenaltyResetSeconds = 180;
 
         public boolean resetTimerPenaltyOnSleep = false;
 
