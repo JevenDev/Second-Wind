@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.3 - 2026-10-16
+
+### Added
+
+- Add timed and sleep resets for repeat-down penalties (configurable)
+- Added "Second Wind" as an effect so you can see how you have before second wind can be activated again
+
+### Fixed
+
+- Totem now pops before getting downed (Fabric specific bug)
+
 ## 1.1.2 - 2026-09-29
 
 ### Added
