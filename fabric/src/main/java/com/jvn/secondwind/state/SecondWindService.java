@@ -3,11 +3,13 @@ package com.jvn.secondwind.state;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.api.AnnouncementMessage;
 import com.jvn.secondwind.api.ChatMessageManager;
+import com.jvn.secondwind.common.CooldownTiming;
 import com.jvn.secondwind.common.PlayerRepair;
 import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.common.ReviveHoldTiming;
 import com.jvn.secondwind.config.CooldownMode;
 import com.jvn.secondwind.config.SecondWindConfig;
+import com.jvn.secondwind.effect.SecondWindEffects;
 import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.util.SecondWindDamageSources;
 import com.jvn.secondwind.util.SecondWindEntityRules;
@@ -31,8 +33,8 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import org.joml.Vector3f;
 
 public final class SecondWindService {
-    public static final int TICKS_PER_SECOND = 20;
-    public static final long TICKS_PER_MC_DAY = 24000L;
+    public static final int TICKS_PER_SECOND = CooldownTiming.TICKS_PER_SECOND;
+    public static final long TICKS_PER_MC_DAY = CooldownTiming.TICKS_PER_MC_DAY;
     private static final float DOWNED_SAFE_HEALTH = 1.0F;
     private static final int DOWNED_SLOWNESS_REFRESH_TICKS = 10;
     private static final int LAST_SECOND_REVIVE_TICKS = Math.max(1, TICKS_PER_SECOND / 10);
@@ -152,6 +154,7 @@ public final class SecondWindService {
         SecondWindPlayerState state = getState(player);
         clearDownedMobilityEffects(player);
         state.resetForRepair();
+        syncCooldownEffect(player);
         releaseReviveChannelsFor(player);
         SecondWindEntityService.interruptReviveChannelsFor(player);
         syncHealth(player);
@@ -199,6 +202,7 @@ public final class SecondWindService {
 
     public static void tickDowned(ServerPlayer player) {
         SecondWindPlayerState state = getState(player);
+        syncCooldownEffect(player);
         if (!state.isDowned()) {
             resetCooldownForNewDayIfNeeded(player);
             if (player.isAlive() && !player.isRemoved()) {
@@ -351,38 +355,46 @@ public final class SecondWindService {
             }
         }
         state.setPendingUnsafeExitCooldown(false);
+        syncCooldownEffect(player);
     }
 
     public static boolean isCooldownActive(ServerPlayer player) {
-        SecondWindPlayerState state = getState(player);
-        resetCooldownForNewDayIfNeeded(player);
-        return switch (SecondWindConfig.COOLDOWN_MODE.get()) {
-            case NONE -> false;
-            case TIMED -> state.getCooldownExpiresEpochMillis() > 0L
-                    ? state.getCooldownExpiresEpochMillis() > System.currentTimeMillis()
-                    : state.getCooldownExpiresGameTime() > player.serverLevel().getGameTime();
-            case MC_DAY -> state.hasConsumedToday() && state.getLastMcDayUsed() == currentMcDay(player);
-            case ON_SLEEP -> state.hasConsumedSinceSleep();
-        };
+        return getCooldownRemainingTicks(player) != 0;
     }
 
     public static int getCooldownRemainingSeconds(ServerPlayer player) {
+        return CooldownTiming.remainingSeconds(getCooldownRemainingTicks(player));
+    }
+
+    private static int getCooldownRemainingTicks(ServerPlayer player) {
         SecondWindPlayerState state = getState(player);
+        resetCooldownForNewDayIfNeeded(player);
         return switch (SecondWindConfig.COOLDOWN_MODE.get()) {
             case NONE -> 0;
-            case TIMED -> {
-                if (state.getCooldownExpiresEpochMillis() > 0L) {
-                    long millisRemaining = Math.max(0L, state.getCooldownExpiresEpochMillis() - System.currentTimeMillis());
-                    yield (int) ((millisRemaining + 999L) / 1000L);
-                }
-                long ticksRemaining = Math.max(0L, state.getCooldownExpiresGameTime() - player.serverLevel().getGameTime());
-                yield (int) ((ticksRemaining + TICKS_PER_SECOND - 1L) / TICKS_PER_SECOND);
-            }
-            case MC_DAY -> isCooldownActive(player)
-                    ? (int) (Math.max(1L, TICKS_PER_MC_DAY - player.serverLevel().getDayTime() % TICKS_PER_MC_DAY) / TICKS_PER_SECOND)
-                    : 0;
+            case TIMED -> CooldownTiming.remainingTimedTicks(
+                    state.getCooldownExpiresEpochMillis(), System.currentTimeMillis(),
+                    state.getCooldownExpiresGameTime(), player.serverLevel().getGameTime());
+            case MC_DAY -> state.hasConsumedToday() && state.getLastMcDayUsed() == currentMcDay(player)
+                    ? CooldownTiming.remainingDayTicks(player.serverLevel().getDayTime()) : 0;
             case ON_SLEEP -> state.hasConsumedSinceSleep() ? -1 : 0;
         };
+    }
+
+    private static void syncCooldownEffect(ServerPlayer player) {
+        int duration = player.isAlive() && !player.isRemoved() && !getState(player).isForcedDeathFlow()
+                ? getCooldownRemainingTicks(player) : 0;
+        MobEffectInstance current = player.getEffect(SecondWindEffects.COOLDOWN);
+        if (duration == 0) {
+            if (current != null) {
+                player.removeEffect(SecondWindEffects.COOLDOWN);
+            }
+        } else if (current == null
+                || current.isInfiniteDuration() != (duration == -1)
+                || Math.abs((long) current.getDuration() - duration) >= TICKS_PER_SECOND
+                || current.getAmplifier() != 0 || current.isAmbient() || current.isVisible() || !current.showIcon()) {
+            // replace instead of merging so clock changes can shorten the displayed cooldown
+            player.forceAddEffect(new MobEffectInstance(SecondWindEffects.COOLDOWN, duration, 0, false, false, true), null);
+        }
     }
 
     public static void resetCooldownForSleep(ServerPlayer player) {
@@ -398,6 +410,7 @@ public final class SecondWindService {
         state.setCooldownExpiresEpochMillis(0L);
         state.setDownPenaltyCount(0);
         state.setPendingUnsafeExitCooldown(false);
+        syncCooldownEffect(player);
     }
 
     public static void resetCooldownAfterDeath(ServerPlayer player) {
@@ -409,6 +422,7 @@ public final class SecondWindService {
         state.setConsumedSinceSleep(false);
         state.setDownPenaltyCount(0);
         state.setPendingUnsafeExitCooldown(false);
+        syncCooldownEffect(player);
     }
 
     public static void resetCooldownForNewDayIfNeeded(ServerPlayer player) {

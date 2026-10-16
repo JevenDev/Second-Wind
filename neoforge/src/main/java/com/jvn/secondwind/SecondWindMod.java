@@ -4,6 +4,7 @@ import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.common.SecondWindCommon;
 import com.jvn.toucanlib.client.ToucanClientOnly;
 import com.jvn.secondwind.config.SecondWindConfig;
+import com.jvn.secondwind.effect.SecondWindEffects;
 import com.jvn.secondwind.item.SecondWindItems;
 import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.state.SecondWindData;
@@ -25,6 +26,7 @@ public final class SecondWindMod {
         SecondWindCriteria.TRIGGER_TYPES.register(modEventBus);
         SecondWindData.ATTACHMENT_TYPES.register(modEventBus);
         SecondWindItems.register(modEventBus);
+        SecondWindEffects.register(modEventBus);
         modEventBus.addListener(SecondWindNetworking::registerPayloads);
         ToucanClientOnly.run(() -> {
             com.jvn.secondwind.client.SecondWindClient.register(modEventBus);

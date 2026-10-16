@@ -3,6 +3,7 @@ package com.jvn.secondwind;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.common.SecondWindCommon;
 import com.jvn.secondwind.config.SecondWindConfig;
+import com.jvn.secondwind.effect.SecondWindEffects;
 import com.jvn.secondwind.event.SecondWindCommands;
 import com.jvn.secondwind.event.SecondWindServerEvents;
 import com.jvn.secondwind.item.SecondWindItems;
@@ -20,6 +21,7 @@ public final class SecondWindMod implements ModInitializer {
         SecondWindEntityService.init();
         SecondWindConfig.init();
         SecondWindItems.register();
+        SecondWindEffects.register();
         SecondWindCriteria.register();
         SecondWindNetworking.registerPayloads();
         SecondWindCommands.register();
