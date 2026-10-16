@@ -357,6 +357,11 @@ public final class SecondWindService {
         syncCooldownEffect(player);
     }
 
+    public static void extendCooldownForPause(ServerPlayer player, long pausedMillis) {
+        SecondWindPlayerState state = getState(player);
+        state.setCooldownExpiresEpochMillis(CooldownTiming.extendExpiryForPause(state.getCooldownExpiresEpochMillis(), pausedMillis));
+    }
+
     public static boolean isCooldownActive(ServerPlayer player) {
         return getCooldownRemainingTicks(player) != 0;
     }

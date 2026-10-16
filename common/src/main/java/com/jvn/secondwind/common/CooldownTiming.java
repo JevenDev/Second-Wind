@@ -18,6 +18,13 @@ public final class CooldownTiming {
         return (int) Math.min(Integer.MAX_VALUE, ticks);
     }
 
+    public static long extendExpiryForPause(long expiresEpochMillis, long pausedMillis) {
+        if (expiresEpochMillis <= 0L) {
+            return 0L;
+        }
+        return expiresEpochMillis + Math.min(Long.MAX_VALUE - expiresEpochMillis, Math.max(0L, pausedMillis));
+    }
+
     public static int remainingDayTicks(long dayTime) {
         return (int) (TICKS_PER_MC_DAY - Math.floorMod(dayTime, TICKS_PER_MC_DAY));
     }

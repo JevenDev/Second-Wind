@@ -3,7 +3,8 @@
   "package": "com.jvn.secondwind.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "client.LivingEntityRendererMixin"
+    "client.LivingEntityRendererMixin",
+    "client.IntegratedServerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
