@@ -3,6 +3,7 @@ package com.jvn.secondwind.client;
 import com.jvn.secondwind.client.hud.SecondWindReviveFlashEffect;
 import com.jvn.secondwind.config.SecondWindConfig;
 import com.jvn.secondwind.network.ClientboundSecondWindStatePayload;
+import com.jvn.secondwind.network.ClientboundTrackedDownedPlayerPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 
@@ -20,6 +21,7 @@ public final class ClientSecondWindState {
     private static long downedTimerDamagePauseStartedNanos = -1L;
     private static boolean giveUpAvailable;
     private static float reviveProgress;
+    private static int reviveRequiredTicks;
     private static float displayedReviveProgress;
     private static boolean timerPaused;
     private static boolean forceCrawlingPose = true;
@@ -96,6 +98,20 @@ public final class ClientSecondWindState {
         }
 
         clearReviveOverlay();
+    }
+
+    public static void applyTrackedState(ClientboundTrackedDownedPlayerPayload payload) {
+        ClientTrackedDownedPlayers.apply(payload);
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            updateReviveTiming(payload, minecraft.player.getId());
+        }
+    }
+
+    static void updateReviveTiming(ClientboundTrackedDownedPlayerPayload payload, int localPlayerId) {
+        if (payload.entityId() == localPlayerId && payload.downed() && payload.timerPaused()) {
+            reviveRequiredTicks = Math.max(0, payload.reviveChannelTicks());
+        }
     }
 
     public static int ticksRemaining() {
@@ -203,9 +219,9 @@ public final class ClientSecondWindState {
 
     public static float displayedReviveProgress() {
         if (reviveProgress > 0.0F) {
-            int requiredTicks = reviveRequiredTicks();
+            int requiredTicks = reviveRequiredTicks;
             if (requiredTicks <= 0) {
-                return 1.0F;
+                return reviveProgress;
             }
 
             long elapsedNanos = Math.max(0L, System.nanoTime() - reviveProgressSyncNanos);
@@ -225,11 +241,7 @@ public final class ClientSecondWindState {
     }
 
     public static float reviveTicksRemaining() {
-        return Math.max(0.0F, (1.0F - displayedReviveProgress()) * reviveRequiredTicks());
-    }
-
-    private static int reviveRequiredTicks() {
-        return (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D);
+        return Math.max(0.0F, (1.0F - displayedReviveProgress()) * reviveRequiredTicks);
     }
 
     private static void clearReviveOverlay() {
@@ -239,6 +251,7 @@ public final class ClientSecondWindState {
         displayedReviverName = "";
         reviveOverlayFadeTicks = 0;
         reviveProgressSyncNanos = 0L;
+        reviveRequiredTicks = 0;
     }
 
     private static void beginDownedTimerDamage(int damageTicksLost) {

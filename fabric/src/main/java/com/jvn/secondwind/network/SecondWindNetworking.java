@@ -2,7 +2,6 @@ package com.jvn.secondwind.network;
 
 import com.jvn.secondwind.client.ClientSecondWindState;
 import com.jvn.secondwind.client.SecondWindClient;
-import com.jvn.secondwind.client.ClientTrackedDownedPlayers;
 import com.jvn.secondwind.state.FailureReason;
 import com.jvn.secondwind.state.SecondWindPlayerState;
 import com.jvn.secondwind.state.SecondWindService;
@@ -40,7 +39,7 @@ public final class SecondWindNetworking {
         ClientPlayNetworking.registerGlobalReceiver(ClientboundSecondWindStatePayload.TYPE,
                 (payload, context) -> context.client().execute(() -> ClientSecondWindState.apply(payload)));
         ClientPlayNetworking.registerGlobalReceiver(ClientboundTrackedDownedPlayerPayload.TYPE,
-                (payload, context) -> context.client().execute(() -> ClientTrackedDownedPlayers.apply(payload)));
+                (payload, context) -> context.client().execute(() -> ClientSecondWindState.applyTrackedState(payload)));
     }
 
     public static void syncToPlayer(ServerPlayer player) {
@@ -95,7 +94,9 @@ public final class SecondWindNetworking {
                 state.getDownedMaxTicks(),
                 SecondWindService.isBeingRevived(player),
                 SecondWindConfig.MULTIPLAYER_REVIVE.get(),
-                (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D),
+                state.getReviveChannelReviver().isPresent()
+                        ? state.getReviveChannelRequiredTicks()
+                        : (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D),
                 SecondWindConfig.REVIVE_DISTANCE.get(),
                 ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "crawl"));
     }

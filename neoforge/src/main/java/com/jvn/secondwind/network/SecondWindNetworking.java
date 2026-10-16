@@ -40,8 +40,8 @@ public final class SecondWindNetworking {
         network.safePlayToClient(
                 ClientboundTrackedDownedPlayerPayload.TYPE,
                 ClientboundTrackedDownedPlayerPayload.STREAM_CODEC,
-                "com.jvn.secondwind.client.ClientTrackedDownedPlayers",
-                "apply");
+                "com.jvn.secondwind.client.ClientSecondWindState",
+                "applyTrackedState");
     }
 
     public static void syncToPlayer(ServerPlayer player) {
@@ -96,7 +96,9 @@ public final class SecondWindNetworking {
                 state.getDownedMaxTicks(),
                 SecondWindService.isBeingRevived(player),
                 SecondWindConfig.MULTIPLAYER_REVIVE.get(),
-                (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D),
+                state.getReviveChannelReviver().isPresent()
+                        ? state.getReviveChannelRequiredTicks()
+                        : (int) Math.ceil(SecondWindConfig.REVIVE_CHANNEL_SECONDS.get() * 20.0D),
                 SecondWindConfig.REVIVE_DISTANCE.get(),
                 ResourceLocation.fromNamespaceAndPath(SecondWindMod.MOD_ID, "crawl"));
     }
