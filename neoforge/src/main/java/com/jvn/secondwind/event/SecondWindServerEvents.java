@@ -14,6 +14,7 @@ import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.util.SecondWindEntityRules;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -29,7 +30,7 @@ import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerWakeUpEvent;
+import net.neoforged.neoforge.event.level.SleepFinishedTimeEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
@@ -259,11 +260,17 @@ public final class SecondWindServerEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onPlayerWakeUp(PlayerWakeUpEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player && !event.wakeImmediately()) {
-            SecondWindService.resetCooldownForSleep(player);
-            SecondWindNetworking.syncToPlayer(player);
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onSleepFinished(SleepFinishedTimeEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)
+                || event.getNewTime() / SecondWindService.TICKS_PER_MC_DAY <= level.getDayTime() / SecondWindService.TICKS_PER_MC_DAY) {
+            return;
+        }
+        for (ServerPlayer player : level.players()) {
+            if (player.isSleeping()) {
+                SecondWindService.resetCooldownForSleep(player);
+                SecondWindNetworking.syncToPlayer(player);
+            }
         }
     }
 

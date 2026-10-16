@@ -3,7 +3,8 @@
   "package": "com.jvn.secondwind.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "LivingEntityAccessor"
+    "LivingEntityAccessor",
+    "LivingEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
