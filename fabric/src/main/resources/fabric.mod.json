@@ -26,7 +26,8 @@
     ]
   },
   "mixins": [
-    "secondwind.mixins.json"
+    "secondwind.mixins.json",
+    "secondwind.fabric.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",

@@ -9,6 +9,10 @@ architectury {
     neoForge()
 }
 
+loom {
+    interfaceInjection.enableDependencyInterfaceInjection = false
+}
+
 configurations {
     common {
         canBeResolved = true

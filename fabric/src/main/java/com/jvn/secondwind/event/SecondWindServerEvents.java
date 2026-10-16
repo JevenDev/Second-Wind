@@ -3,6 +3,7 @@ package com.jvn.secondwind.event;
 import com.jvn.secondwind.advancement.SecondWindCriteria;
 import com.jvn.secondwind.common.ReviveHealth;
 import com.jvn.secondwind.config.SecondWindConfig;
+import com.jvn.secondwind.mixin.LivingEntityAccessor;
 import com.jvn.secondwind.network.SecondWindNetworking;
 import com.jvn.secondwind.state.FailureReason;
 import com.jvn.secondwind.state.ReviveReason;
@@ -132,6 +133,11 @@ public final class SecondWindServerEvents {
 
         if (!SecondWindService.canTriggerSecondWind(player, source)) {
             return true;
+        }
+
+        // fabric's death callback runs before vanilla checks totems
+        if (((LivingEntityAccessor) player).secondwind$checkTotemDeathProtection(source)) {
+            return false;
         }
 
         if (SecondWindService.down(player, source)) {
